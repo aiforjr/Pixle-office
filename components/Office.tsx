@@ -428,20 +428,18 @@ export default function Office() {
       .subscribe(async (status: string) => {
         if (status === "SUBSCRIBED") {
           channelSubscribedRef.current = true;
+          broadcastPositionRef.current = (pos: PresenceUser) => {
+            channel.send({ type: "broadcast", event: "pos", payload: pos });
+          };
+          updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) => {
+            channel.track({ name: whoAmI, ...pos });
+          };
           // Include last known position so joining users see us at the right spot immediately
           const savedRaw = localStorage.getItem(posKey(whoAmI.toLowerCase()));
           const saved = savedRaw ? JSON.parse(savedRaw) as { c: number; r: number; facing: string; sitting: boolean } : null;
           await channel.track({ name: whoAmI, c: saved?.c ?? 0, r: saved?.r ?? 0, facing: saved?.facing ?? "down", sitting: saved?.sitting ?? false });
         }
       });
-
-    broadcastPositionRef.current = (pos: PresenceUser) => {
-      channel.send({ type: "broadcast", event: "pos", payload: pos });
-    };
-
-    updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) => {
-      channel.track({ name: whoAmI, ...pos });
-    };
 
     return () => {
       channelSubscribedRef.current = false;
@@ -1457,15 +1455,15 @@ export default function Office() {
         if (dist > TILE * 3) {
           rs.x = targetX; rs.y = targetY; rs.stepDist = 0;
         } else if (dist > 0.5) {
-          // Match the remote player's actual walk speed (broadcasts at ~10 Hz × SPEED px/frame each step)
-          const step = Math.min(dist, SPEED * 6);
+          // Move toward remote position at local walk speed for smooth interpolation
+          const step = Math.min(dist, SPEED);
           rs.x += (dx / dist) * step;
           rs.y += (dy / dist) * step;
           rs.stepDist += step;
         } else {
           rs.x = targetX; rs.y = targetY;
         }
-        const ruMoving = ru.moving && dist > 1;
+        const ruMoving = ru.moving || dist > 1;
         const ruStep = ruMoving ? (Math.floor(rs.stepDist / 4) % 4) : 0;
         const ruFootY = rs.y + (ru.sitting ? 4 : 8);
         items.push({
