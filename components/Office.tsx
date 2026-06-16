@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { io, type Socket } from "socket.io-client";
 import { TILE, COLS, ROWS, NATIVE_W, NATIVE_H, SCALE, person, SKINS } from "@/lib/sprites";
 import {
   buildWorld,
@@ -207,14 +207,11 @@ function ItemPreview({ entry }: { entry: CatalogEntry }) {
 
 type PresenceUser = { name: string; c: number; r: number; x: number; y: number; facing: string; sitting: boolean; moving: boolean; status?: string };
 
-// Singleton outside React so Strict Mode double-invoke doesn't create two clients
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-let _supabase: ReturnType<typeof createClient> | null = null;
-const getSupabase = () => {
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  if (!_supabase) _supabase = createClient(supabaseUrl, supabaseAnonKey);
-  return _supabase;
+// Socket singleton outside React so Strict Mode double-invoke doesn't create two connections
+let _socket: Socket | null = null;
+const getSocket = () => {
+  if (!_socket) _socket = io();
+  return _socket;
 };
 
 export default function Office() {
@@ -322,129 +319,122 @@ export default function Office() {
     } catch { /* no audio permission */ }
   };
 
-  const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabase>>["channel"]> | null>(null);
-  const channelSubscribedRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
 
   const broadcastWave = () => {
-    channelRef.current?.send({ type: "broadcast", event: "wave", payload: { from: whoAmI ?? "Someone" } });
+    socketRef.current?.emit("wave", { from: whoAmI ?? "Someone" });
   };
 
   const broadcastChime = () => {
-    channelRef.current?.send({ type: "broadcast", event: "chime", payload: { from: whoAmI ?? "Someone" } });
+    socketRef.current?.emit("chime", { from: whoAmI ?? "Someone" });
   };
 
   const broadcastMeetInvite = (roomLabel: string) => {
-    channelRef.current?.send({ type: "broadcast", event: "meet-invite", payload: { from: whoAmI ?? "Someone", room: roomLabel } });
+    socketRef.current?.emit("meet-invite", { from: whoAmI ?? "Someone", room: roomLabel });
   };
 
   useEffect(() => {
-    const sb = getSupabase();
-    if (!sb || !whoAmI) return;
+    if (!whoAmI) return;
 
-    const channel = sb.channel("pixle-office", {
-      config: {
-        presence: { key: whoAmI },
-        broadcast: { self: false, ack: false },
-      },
-    });
-    channelRef.current = channel;
+    const socket = getSocket();
+    socketRef.current = socket;
 
-    channel
-      .on("broadcast", { event: "wave" }, () => { playTing(); })
-      .on("broadcast", { event: "chime" }, () => { playChime(); })
-      .on("broadcast", { event: "meet-invite" }, ({ payload }: { payload: { from: string; room: string } }) => {
-        if (!payload?.room) return;
-        goToRoomRef.current?.(payload.room);
-        playChime();
-        setMeetInviteToast({ from: payload.from, room: payload.room });
-        setTimeout(() => setMeetInviteToast(null), 5000);
-      })
-      // High-frequency position updates come in via broadcast, not presence
-      .on("broadcast", { event: "pos" }, ({ payload }: { payload: PresenceUser }) => {
-        if (!payload?.name || payload.name === whoAmI) return;
-        remoteUsersRef.current[payload.name] = payload;
-        // Don't setState every frame — the render loop reads remoteUsersRef directly
-      })
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{ name: string; c?: number; r?: number; facing?: string; sitting?: boolean }>();
-        // Build set of online presence keys (excluding self) for pruning ghosts
-        const onlineKeys = new Set(Object.keys(state).filter(k => k !== whoAmI));
-        // Only prune after we've confirmed the channel is fully subscribed and the state is non-empty.
-        // Pruning on an empty/partial sync snapshot would incorrectly evict online users.
-        if (channelSubscribedRef.current && onlineKeys.size > 0) {
-          for (const name of Object.keys(remoteUsersRef.current)) {
-            if (!onlineKeys.has(name)) {
-              delete remoteUsersRef.current[name];
-            }
-          }
-        }
-        // Add or refresh users already present when we subscribed
-        for (const [key, presences] of Object.entries(state)) {
-          if (key === whoAmI) continue;
-          const pres = (presences as { name?: string; c?: number; r?: number; facing?: string; sitting?: boolean }[])[0];
-          const name = pres?.name ?? key;
-          const existing = remoteUsersRef.current[name];
-          if (!existing) {
-            // New user we haven't seen yet — seed with their last known position
-            const seat = seatByNameRef.current[name.toLowerCase()];
-            const c = (pres?.c !== undefined && pres.c !== 0) ? pres.c : (seat?.c ?? 0);
-            const r = (pres?.r !== undefined && pres.r !== 0) ? pres.r : (seat?.r ?? 0);
-            const facing = pres?.facing ?? seat?.facing ?? "down";
-            const sp = tileCenterPx(c, r);
-            remoteUsersRef.current[name] = { name, c, r, x: sp.x, y: sp.y, facing, sitting: pres?.sitting ?? false, moving: false };
-          } else {
-            // User already tracked — update their tile coords from presence (pos broadcasts update x/y)
-            if (pres?.c !== undefined && pres.c !== 0) existing.c = pres.c;
-            if (pres?.r !== undefined && pres.r !== 0) existing.r = pres.r;
-            if (pres?.facing) existing.facing = pres.facing;
-            if (pres?.sitting !== undefined) existing.sitting = pres.sitting;
-          }
-        }
-        setRemoteUsers({ ...remoteUsersRef.current });
-      })
-      .on("presence", { event: "join" }, ({ key, newPresences }: { key: string; newPresences: { name: string; c?: number; r?: number; facing?: string; sitting?: boolean }[] }) => {
-        if (key === whoAmI) return;
-        const pres = newPresences[0];
-        const name = pres?.name ?? key;
-        if (!remoteUsersRef.current[name]) {
-          // Prefer the position from the presence payload; fall back to their assigned seat
-          const seat = seatByNameRef.current[name.toLowerCase()];
-          const c = (pres?.c !== undefined && pres.c !== 0) ? pres.c : (seat?.c ?? 0);
-          const r = (pres?.r !== undefined && pres.r !== 0) ? pres.r : (seat?.r ?? 0);
-          const facing = pres?.facing ?? seat?.facing ?? "down";
-          const sp = tileCenterPx(c, r);
-          remoteUsersRef.current[name] = { name, c, r, x: sp.x, y: sp.y, facing, sitting: pres?.sitting ?? false, moving: false };
-          setRemoteUsers({ ...remoteUsersRef.current });
-        }
-      })
-      .on("presence", { event: "leave" }, ({ key, leftPresences }: { key: string; leftPresences: { name?: string }[] }) => {
-        if (key === whoAmI) return;
-        // Remove by both presence key and payload name (they should be equal but be defensive)
-        const name = leftPresences?.[0]?.name ?? key;
-        delete remoteUsersRef.current[key];
-        if (name !== key) delete remoteUsersRef.current[name];
-        setRemoteUsers({ ...remoteUsersRef.current });
-      })
-      .subscribe(async (status: string) => {
-        if (status === "SUBSCRIBED") {
-          channelSubscribedRef.current = true;
-          broadcastPositionRef.current = (pos: PresenceUser) => {
-            channel.send({ type: "broadcast", event: "pos", payload: pos });
-          };
-          updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) => {
-            channel.track({ name: whoAmI, ...pos });
-          };
-          // Include last known position so joining users see us at the right spot immediately
-          const savedRaw = localStorage.getItem(posKey(whoAmI.toLowerCase()));
-          const saved = savedRaw ? JSON.parse(savedRaw) as { c: number; r: number; facing: string; sitting: boolean } : null;
-          await channel.track({ name: whoAmI, c: saved?.c ?? 0, r: saved?.r ?? 0, facing: saved?.facing ?? "down", sitting: saved?.sitting ?? false });
-        }
+    // Wire up position refs immediately — socket.io queues emits until connected
+    broadcastPositionRef.current = (pos: PresenceUser) => {
+      socket.emit("pos", pos);
+    };
+    updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) => {
+      socket.emit("update-presence", { name: whoAmI, ...pos });
+    };
+
+    // On connect (and every reconnect) — re-register presence with last known position
+    const onConnect = () => {
+      const savedRaw = localStorage.getItem(posKey(whoAmI.toLowerCase()));
+      const saved = savedRaw ? JSON.parse(savedRaw) as { c: number; r: number; facing: string; sitting: boolean } : null;
+      socket.emit("join", {
+        name: whoAmI,
+        c: saved?.c ?? 0,
+        r: saved?.r ?? 0,
+        facing: saved?.facing ?? "down",
+        sitting: saved?.sitting ?? false,
       });
+    };
+    socket.on("connect", onConnect);
+    // If already connected (e.g. socket reused from singleton), join immediately
+    if (socket.connected) onConnect();
+
+    // High-frequency position updates — mutate ref directly, render loop reads it
+    const onPos = (payload: PresenceUser) => {
+      if (!payload?.name || payload.name === whoAmI) return;
+      remoteUsersRef.current[payload.name] = payload;
+    };
+    socket.on("pos", onPos);
+
+    // Sound / navigation events
+    const onWave = () => { playTing(); };
+    const onChime = () => { playChime(); };
+    const onMeetInvite = ({ from, room }: { from: string; room: string }) => {
+      if (!room) return;
+      goToRoomRef.current?.(room);
+      playChime();
+      setMeetInviteToast({ from, room });
+      setTimeout(() => setMeetInviteToast(null), 5000);
+    };
+    socket.on("wave", onWave);
+    socket.on("chime", onChime);
+    socket.on("meet-invite", onMeetInvite);
+
+    // Full presence snapshot when we first connect (replaces Supabase "sync")
+    const onSync = (state: Record<string, { name: string; c?: number; r?: number; facing?: string; sitting?: boolean }>) => {
+      for (const [, pres] of Object.entries(state)) {
+        if (pres.name === whoAmI) continue;
+        if (!remoteUsersRef.current[pres.name]) {
+          const seat = seatByNameRef.current[pres.name.toLowerCase()];
+          const c = (pres.c !== undefined && pres.c !== 0) ? pres.c : (seat?.c ?? 0);
+          const r = (pres.r !== undefined && pres.r !== 0) ? pres.r : (seat?.r ?? 0);
+          const facing = pres.facing ?? seat?.facing ?? "down";
+          const sp = tileCenterPx(c, r);
+          remoteUsersRef.current[pres.name] = { name: pres.name, c, r, x: sp.x, y: sp.y, facing, sitting: pres.sitting ?? false, moving: false };
+        }
+      }
+      setRemoteUsers({ ...remoteUsersRef.current });
+    };
+    socket.on("sync", onSync);
+
+    // New user joined (replaces Supabase "join")
+    const onJoin = ({ key, pres }: { key: string; pres: { name: string; c?: number; r?: number; facing?: string; sitting?: boolean } }) => {
+      if (key === whoAmI) return;
+      const name = pres?.name ?? key;
+      if (!remoteUsersRef.current[name]) {
+        const seat = seatByNameRef.current[name.toLowerCase()];
+        const c = (pres?.c !== undefined && pres.c !== 0) ? pres.c : (seat?.c ?? 0);
+        const r = (pres?.r !== undefined && pres.r !== 0) ? pres.r : (seat?.r ?? 0);
+        const facing = pres?.facing ?? seat?.facing ?? "down";
+        const sp = tileCenterPx(c, r);
+        remoteUsersRef.current[name] = { name, c, r, x: sp.x, y: sp.y, facing, sitting: pres?.sitting ?? false, moving: false };
+        setRemoteUsers({ ...remoteUsersRef.current });
+      }
+    };
+    socket.on("join", onJoin);
+
+    // User left (replaces Supabase "leave")
+    const onLeave = ({ key, name }: { key: string; name: string }) => {
+      if (key === whoAmI) return;
+      delete remoteUsersRef.current[key];
+      if (name !== key) delete remoteUsersRef.current[name];
+      setRemoteUsers({ ...remoteUsersRef.current });
+    };
+    socket.on("leave", onLeave);
 
     return () => {
-      channelSubscribedRef.current = false;
-      sb.removeChannel(channel);
-      channelRef.current = null;
+      socket.off("connect", onConnect);
+      socket.off("pos", onPos);
+      socket.off("wave", onWave);
+      socket.off("chime", onChime);
+      socket.off("meet-invite", onMeetInvite);
+      socket.off("sync", onSync);
+      socket.off("join", onJoin);
+      socket.off("leave", onLeave);
       broadcastPositionRef.current = null;
       updatePresenceRef.current = null;
     };
