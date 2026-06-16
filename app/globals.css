@@ -1,0 +1,1243 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  /* match the grass tile average so the seam between canvas and page is invisible */
+  background: #334a43;
+  color: #e8e8e8;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  overflow: hidden;
+}
+
+.stage {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #334a43;
+  overflow: hidden;
+}
+
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* fill full browser width; square canvas overflows vertically → stage clips it */
+  width: 100vw;
+  height: 100vw;
+  display: block;
+}
+
+.hud {
+  position: fixed;
+  left: 16px;
+  bottom: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #aeb6c0;
+  background: rgba(15, 18, 22, 0.7);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.hud b {
+  color: #fff;
+}
+
+.officeWrap {
+  position: relative;
+  display: block;
+  width: 100vw;
+  height: 100vw;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.selBar {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: rgba(18, 22, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+  font-size: 13px;
+  color: #e8eef6;
+  white-space: nowrap;
+  flex-wrap: wrap;
+  max-width: calc(100vw - 200px);
+  z-index: 5;
+}
+
+.selBar .selName {
+  font-weight: 700;
+  color: #9fd2ff;
+  margin-right: 2px;
+}
+
+.selBar .selHint {
+  color: #aeb6c0;
+  font-size: 12px;
+}
+
+.selBar button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eef6;
+  background: rgba(54, 62, 74, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.selBar button:hover {
+  background: rgba(72, 84, 100, 0.95);
+}
+
+.selBar button.danger {
+  background: rgba(180, 60, 56, 0.92);
+  border-color: rgba(255, 140, 130, 0.4);
+}
+
+.selBar button.danger:hover {
+  background: rgba(210, 74, 68, 0.95);
+}
+
+.selBar button.ghost {
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 8px;
+  color: #aeb6c0;
+}
+
+.selBar button.active {
+  background: rgba(90, 200, 255, 0.18);
+  border-color: rgba(90, 200, 255, 0.6);
+  color: #9fd2ff;
+}
+
+.gallery {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 12px 12px 12px 14px;
+  background: rgba(14, 17, 22, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  backdrop-filter: blur(6px);
+  z-index: 10;
+}
+
+.galleryTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cdd6e0;
+  margin-bottom: 7px;
+}
+
+.galleryItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.galleryItems button {
+  font-family: inherit;
+  font-size: 12px;
+  color: #e8eef6;
+  background: rgba(54, 62, 74, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.galleryItems button:hover {
+  background: rgba(72, 110, 150, 0.95);
+}
+
+.galleryEmpty {
+  font-size: 12px;
+  color: #5a6470;
+  font-style: italic;
+}
+
+.bottomRightStack {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  z-index: 10;
+}
+
+.slackChannelStrip {
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 22, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 10px 12px;
+  backdrop-filter: blur(4px);
+}
+
+.slackChannelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 4px;
+}
+
+.slackChannelLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: #5a6470;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.slackAppIcons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slackAppIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.845);
+  text-decoration: none;
+  transition: background 0.1s, transform 0.1s;
+}
+
+.slackAppIcon:hover {
+  background: rgba(255, 255, 255, 0.92);
+  transform: scale(1.1);
+}
+
+.slackAppIcon::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 12, 18, 0.95);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.slackAppIcon:hover::after {
+  opacity: 1;
+}
+
+.slackChannelDivider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 2px 0 4px;
+}
+
+.slackChannelGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 2px;
+}
+
+.slackChannelPill {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: #c8aed4;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slackChannelPill:hover {
+  background: rgba(74, 21, 75, 0.5);
+  color: #f0e0f8;
+}
+
+.zoomControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: rgba(18, 22, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.zoomControls button {
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e8eef6;
+  background: rgba(54, 62, 74, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s;
+}
+
+.zoomControls button:hover {
+  background: rgba(72, 84, 100, 0.95);
+}
+
+.zoomControls button.ghost {
+  background: transparent;
+  border-color: transparent;
+  font-size: 16px;
+}
+
+.zoomControls span {
+  font-size: 12px;
+  color: #aeb6c0;
+  min-width: 38px;
+  text-align: center;
+}
+
+.zoomControls button.goToDeskBtn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #c8d8f0;
+  background: rgba(54, 90, 148, 0.85);
+  border-color: rgba(100, 150, 220, 0.3);
+}
+
+.zoomControls button.goToDeskBtn:hover {
+  background: rgba(70, 110, 180, 0.95);
+}
+
+.editLayoutBtn {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eef6;
+  background: rgba(36, 56, 80, 0.95);
+  border: 1px solid rgba(90, 160, 255, 0.35);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  z-index: 5;
+}
+
+.editLayoutBtn:hover {
+  background: rgba(50, 80, 115, 0.95);
+  border-color: rgba(90, 160, 255, 0.6);
+}
+
+.statusPicker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 12, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 8px;
+}
+
+.statusPickerBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.statusPickerBtn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.statusPickerBtn.active {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.statusPickerDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusPickerLabel {
+  line-height: 1;
+}
+
+.editToolbar {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+}
+
+.saveBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eef6;
+  background: rgba(36, 56, 80, 0.95);
+  border: 1px solid rgba(90, 160, 255, 0.35);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.saveBtn:hover {
+  background: rgba(50, 80, 115, 0.95);
+  border-color: rgba(90, 160, 255, 0.6);
+}
+
+.saveBtn.saved {
+  background: rgba(30, 80, 50, 0.95);
+  border-color: rgba(60, 200, 100, 0.6);
+  color: #7ef0a8;
+  cursor: default;
+}
+
+.removeAllBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f4caca;
+  background: rgba(80, 28, 28, 0.95);
+  border: 1px solid rgba(220, 80, 80, 0.35);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.removeAllBtn:hover {
+  background: rgba(120, 36, 36, 0.95);
+  border-color: rgba(220, 80, 80, 0.7);
+}
+
+.doneBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eef6;
+  background: rgba(40, 44, 52, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.doneBtn:hover {
+  background: rgba(60, 68, 80, 0.95);
+}
+
+.libToggleBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eef6;
+  background: rgba(36, 52, 74, 0.95);
+  border: 1px solid rgba(90, 160, 255, 0.3);
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.libToggleBtn:hover {
+  background: rgba(50, 72, 105, 0.95);
+  border-color: rgba(90, 160, 255, 0.6);
+}
+
+.libToggleBtn.active {
+  background: rgba(36, 72, 120, 0.95);
+  border-color: rgba(90, 160, 255, 0.7);
+  color: #9fd2ff;
+}
+
+/* ── Items Library overlay ── */
+
+.itemsLibrary {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  width: 272px;
+  background: rgba(12, 15, 20, 0.98);
+  border-left: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(12px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  animation: libSlideIn 0.18s ease-out;
+}
+
+@keyframes libSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.libHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+.libTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cdd6e0;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.libClose {
+  font-family: inherit;
+  font-size: 15px;
+  color: #5a6470;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.libClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cdd6e0;
+}
+
+.libBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.libCategory {
+  margin-bottom: 20px;
+}
+
+.libCatName {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #3d4755;
+  margin-bottom: 7px;
+  padding-left: 2px;
+}
+
+.libGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.libCard {
+  font-family: inherit;
+  background: rgba(24, 30, 40, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  padding: 8px 6px 7px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.12s, border-color 0.15s, transform 0.1s;
+  width: 100%;
+}
+
+.libCard:hover {
+  background: rgba(38, 54, 78, 0.95);
+  border-color: rgba(90, 160, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.libCard:active {
+  transform: translateY(0);
+}
+
+.libItemCanvas {
+  width: 80px;
+  height: 80px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+.libCardName {
+  font-size: 11px;
+  color: #8a98a8;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+  transition: color 0.12s;
+}
+
+.libCard:hover .libCardName {
+  color: #c8d4e0;
+}
+
+/* ── Pattern buttons in selBar ── */
+
+.selBar .patternBtn {
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(54, 62, 74, 0.95);
+  color: #e8eef6;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.selBar .patternBtn:hover {
+  background: rgba(72, 84, 100, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.selBar .patternBtn.active {
+  border-color: #fff;
+  background: rgba(90, 200, 255, 0.18);
+  box-shadow: 0 0 0 2px rgba(90, 200, 255, 0.8);
+}
+
+/* ── Color swatches in selBar ── */
+
+.selBar .selHint--sep {
+  margin-left: 4px;
+}
+
+.selBar .colorSwatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.selBar .colorSwatch:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.15);
+  background: inherit;
+}
+
+.selBar .colorSwatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(90, 200, 255, 0.8);
+  transform: scale(1.15);
+  background: inherit;
+}
+
+/* color picker label — shows a swatch that opens the native picker */
+.selBar .colorPickerBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.selBar .colorPickerBtn input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.selBar .colorPickerSwatch {
+  display: block;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.1s;
+}
+
+.selBar .colorPickerSwatch::after {
+  content: "✎";
+  position: absolute;
+  font-size: 8px;
+  bottom: -3px;
+  right: -3px;
+  background: rgba(18, 22, 28, 0.92);
+  border-radius: 50%;
+  width: 11px;
+  height: 11px;
+  line-height: 11px;
+  text-align: center;
+  color: #cdd6e0;
+}
+
+/* ── Google Meet prompt banner ── */
+
+.meetPrompt {
+  position: fixed;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  animation: meetSlideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+@keyframes meetSlideUp {
+  from { transform: translateX(-50%) translateY(16px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+.meetPromptInner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(14, 18, 26, 0.97);
+  border: 1px solid rgba(66, 133, 244, 0.45);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(66, 133, 244, 0.2);
+  white-space: nowrap;
+  pointer-events: all;
+}
+
+.meetPromptIcon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.meetPromptText {
+  font-size: 13px;
+  color: #c8d4e8;
+  line-height: 1.4;
+}
+
+.meetPromptText strong {
+  color: #9fd2ff;
+}
+
+.meetPromptJoin {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #1a73e8;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.meetPromptJoin:hover {
+  background: #1557b0;
+}
+
+.meetPromptDismiss {
+  font-family: inherit;
+  font-size: 13px;
+  color: #5a6470;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.meetPromptDismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cdd6e0;
+}
+
+.selBar .colorPickerBtn:hover .colorPickerSwatch {
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+/* ── Wave button inside meetPrompt ── */
+
+.meetPromptWave {
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 46, 60, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, transform 0.1s;
+}
+
+.meetPromptWave:hover {
+  background: rgba(70, 80, 100, 0.95);
+  transform: scale(1.1);
+}
+
+.meetPromptWave:active {
+  transform: scale(0.95);
+}
+
+.meetPromptSlack {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #4a154b;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+
+.meetPromptSlack:hover {
+  background: #611f69;
+}
+
+/* ── NPC profile modal ── */
+
+.npcModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+@keyframes npcFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.npcModalCard {
+  position: fixed; /* overridden by inline style when position is known */
+  z-index: 101;
+  background: rgba(14, 18, 26, 0.98);
+  border: 1px solid rgba(90, 160, 255, 0.3);
+  border-radius: 16px;
+  padding: 36px 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 260px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(90, 160, 255, 0.12);
+  animation: npcSlideUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes npcSlideUp {
+  from { transform: translateY(18px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.npcModalAvatar {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+}
+
+.npcModalAvatarInitial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(54, 90, 148, 0.8);
+  font-size: 30px;
+  font-weight: 700;
+  color: #9fd2ff;
+  border: 2px solid rgba(90, 160, 255, 0.35);
+}
+
+.npcModalStatusDot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(14, 18, 26, 0.98);
+}
+
+.npcModalName {
+  font-size: 19px;
+  font-weight: 700;
+  color: #e8eef6;
+  text-align: center;
+}
+
+.npcModalStatus {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.npcModalActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.npcModalWaveBtn {
+  font-size: 22px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 46, 60, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.1s;
+}
+
+.npcModalWaveBtn:hover {
+  background: rgba(70, 80, 100, 0.95);
+  transform: scale(1.04);
+}
+
+.npcModalWaveBtn:active {
+  transform: scale(0.97);
+}
+
+.npcModalGoBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(54, 90, 148, 0.9);
+  border: 1px solid rgba(90, 160, 255, 0.35);
+  border-radius: 10px;
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.npcModalGoBtn:hover {
+  background: rgba(70, 110, 180, 0.98);
+}
+
+.npcModalSlackBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: #4a154b;
+  border: 1px solid rgba(200, 100, 210, 0.35);
+  border-radius: 10px;
+  padding: 11px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.npcModalSlackBtn:hover {
+  background: #611f69;
+}
+
+.npcModalInviteBtn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(40, 120, 80, 0.9);
+  border: 1px solid rgba(80, 200, 120, 0.35);
+  border-radius: 10px;
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.npcModalInviteBtn:hover {
+  background: rgba(30, 95, 65, 0.98);
+}
+
+.npcModalClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #5a6470;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.npcModalClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cdd6e0;
+}
+
+/* ── Meet-invite toast ── */
+
+.meetInviteToast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background: rgba(10, 12, 20, 0.96);
+  border: 1px solid rgba(90, 200, 130, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+  color: #d4f0dc;
+  font-size: 13px;
+  font-family: inherit;
+  max-width: 380px;
+  white-space: nowrap;
+}
+
+.meetInviteToastIcon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.meetInviteToastClose {
+  margin-left: 6px;
+  background: transparent;
+  border: none;
+  color: #5a7060;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.meetInviteToastClose:hover {
+  color: #a0c8a8;
+  background: rgba(255,255,255,0.06);
+}
+
+/* ── Who are you? identity picker ── */
+
+.whoOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 18, 0.88);
+  backdrop-filter: blur(6px);
+  animation: whoFadeIn 0.2s ease-out;
+}
+
+@keyframes whoFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.whoCard {
+  background: rgba(14, 18, 26, 0.98);
+  border: 1px solid rgba(90, 160, 255, 0.25);
+  border-radius: 20px;
+  padding: 40px 36px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  box-shadow: 0 12px 56px rgba(0, 0, 0, 0.8);
+  animation: whoSlideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 360px;
+  width: 90vw;
+}
+
+@keyframes whoSlideUp {
+  from { transform: translateY(24px) scale(0.95); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.whoTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: #e8eef6;
+  letter-spacing: -0.01em;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.whoSubtitle {
+  font-size: 13px;
+  color: #5a6470;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.whoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.whoBtn {
+  font-family: inherit;
+  background: rgba(24, 30, 42, 0.9);
+  border: 1px solid rgba(90, 160, 255, 0.18);
+  border-radius: 12px;
+  padding: 20px 12px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.12s, border-color 0.15s, transform 0.1s;
+}
+
+.whoBtn:hover {
+  background: rgba(36, 58, 96, 0.95);
+  border-color: rgba(90, 160, 255, 0.55);
+  transform: translateY(-2px);
+}
+
+.whoBtn:active {
+  transform: translateY(0);
+}
+
+.whoAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(40, 72, 130, 0.7);
+  font-size: 24px;
+  font-weight: 700;
+  color: #9fd2ff;
+  border: 2px solid rgba(90, 160, 255, 0.3);
+}
+
+.whoName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #c8d4e8;
+  text-align: center;
+}
+
