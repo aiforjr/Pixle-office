@@ -1171,5 +1171,5 @@ export const SKINS: Record<string, Skin> = {
   neel:    { hair: "#2a2620", hairHi: "#3c372e", shirt: "#3a6fd0", shirtHi: "#5b8fe8", skin: "#e8b48c" },
   sagar:   { hair: "#1c1a22", hairHi: "#2e2b38", shirt: "#d96a1a", shirtHi: "#f08840", skin: "#e0a87e" },
   pramit:  { hair: "#23201a", hairHi: "#34302a", shirt: "#3a9e52", shirtHi: "#56c470", skin: "#e8b48c" },
-  mamjima: { hair: "#1a1208", hairHi: "#2e2010", shirt: "#d04a8a", shirtHi: "#e86aaa", skin: "#8b5e3c" },
+  manjima: { hair: "#1a1208", hairHi: "#2e2010", shirt: "#d04a8a", shirtHi: "#e86aaa", skin: "#8b5e3c" },
 };

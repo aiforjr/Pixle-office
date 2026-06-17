@@ -320,9 +320,10 @@ export function buildWorld(): World {
   ];
 
   const npcs: NPC[] = [
-    { id: "neel",     name: "Neel",     c: 47, r: 48, status: "online",  skinKey: "neel",    facing: "up", seat: { seat: "#3a6fd0", seatHi: "#5b8fe8" }, slackUserId: "U_NEEL_ID" },
-    { id: "manjimah", name: "Manjimah", c: 54, r: 48, status: "away",    skinKey: "mamjima", facing: "up", seat: { seat: "#d04a8a", seatHi: "#e86aaa" }, slackUserId: "U_MAMJIMA_ID" },
-    { id: "pramit",   name: "Pramit",   c: 47, r: 60, status: "offline", skinKey: "pramit",  facing: "up", seat: { seat: "#3a9e52", seatHi: "#56c470" }, slackUserId: "U_PRAMIT_ID" },
+    { id: "sagar",   name: "Sagar",   c: 61, r: 48, status: "offline", skinKey: "sagar",   facing: "up", seat: { seat: "#d96a1a", seatHi: "#f08840" }, slackUserId: "U_SAGAR_ID" },
+    { id: "neel",    name: "Neel",    c: 47, r: 48, status: "offline", skinKey: "neel",    facing: "up", seat: { seat: "#3a6fd0", seatHi: "#5b8fe8" }, slackUserId: "U_NEEL_ID" },
+    { id: "manjima", name: "Manjima", c: 54, r: 48, status: "offline", skinKey: "manjima", facing: "up", seat: { seat: "#d04a8a", seatHi: "#e86aaa" }, slackUserId: "U_MAMJIMA_ID" },
+    { id: "pramit",  name: "Pramit",  c: 47, r: 60, status: "offline", skinKey: "pramit",  facing: "up", seat: { seat: "#3a9e52", seatHi: "#56c470" }, slackUserId: "U_PRAMIT_ID" },
   ];
 
   const world: World = {

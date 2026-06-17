@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { TILE, COLS, ROWS, NATIVE_W, NATIVE_H, SCALE, person, SKINS } from "@/lib/sprites";
 import {
   buildWorld,
@@ -106,7 +106,7 @@ const LAYOUT_KEY = "pixle-office-layout-v4";
 const WHO_KEY = "pixle-who-v1";
 const posKey = (name: string) => `pixle-pos-v1-${name.toLowerCase()}`;
 
-const TEAM_MEMBERS = ["Sagar", "Pramit", "Neel", "Manjimah"] as const;
+const TEAM_MEMBERS = ["Sagar", "Pramit", "Neel", "Manjima"] as const;
 type TeamMember = typeof TEAM_MEMBERS[number];
 
 // Map display name (any case) → SKINS key
@@ -114,8 +114,7 @@ const NAME_TO_SKIN_KEY: Record<string, keyof typeof SKINS> = {
   sagar:    "sagar",
   pramit:   "pramit",
   neel:     "neel",
-  manjimah: "mamjima",
-  mamjima:  "mamjima",
+  manjima: "manjima",
 };
 const getSkinKey = (name: string): keyof typeof SKINS =>
   NAME_TO_SKIN_KEY[name.toLowerCase()] ?? "sagar";
@@ -210,7 +209,10 @@ type PresenceUser = { name: string; c: number; r: number; x: number; y: number; 
 // Socket singleton outside React so Strict Mode double-invoke doesn't create two connections
 let _socket: Socket | null = null;
 const getSocket = () => {
-  if (!_socket) _socket = io();
+  if (!_socket) {
+    const url = process.env.NEXT_PUBLIC_SOCKET_URL ?? "";
+    _socket = url ? io(url) : io();
+  }
   return _socket;
 };
 
@@ -232,7 +234,7 @@ export default function Office() {
   const [myStatus, setMyStatus] = useState<UserStatus>("online");
   const myStatusRef = useRef<UserStatus>("online");
   useEffect(() => {
-    const v = localStorage.getItem(WHO_KEY);
+    const v = sessionStorage.getItem(WHO_KEY);
     if (TEAM_MEMBERS.includes(v as TeamMember)) {
       whoAmIRef.current = v as TeamMember;
       setWhoAmI(v as TeamMember);
@@ -321,17 +323,9 @@ export default function Office() {
 
   const socketRef = useRef<Socket | null>(null);
 
-  const broadcastWave = () => {
-    socketRef.current?.emit("wave", { from: whoAmI ?? "Someone" });
-  };
-
-  const broadcastChime = () => {
-    socketRef.current?.emit("chime", { from: whoAmI ?? "Someone" });
-  };
-
-  const broadcastMeetInvite = (roomLabel: string) => {
-    socketRef.current?.emit("meet-invite", { from: whoAmI ?? "Someone", room: roomLabel });
-  };
+  const broadcastWave = () => socketRef.current?.emit("wave", { from: whoAmI ?? "Someone" });
+  const broadcastChime = () => socketRef.current?.emit("chime", { from: whoAmI ?? "Someone" });
+  const broadcastMeetInvite = (roomLabel: string) => socketRef.current?.emit("meet-invite", { from: whoAmI ?? "Someone", room: roomLabel });
 
   useEffect(() => {
     if (!whoAmI) return;
@@ -339,52 +333,32 @@ export default function Office() {
     const socket = getSocket();
     socketRef.current = socket;
 
-    // Wire up position refs immediately — socket.io queues emits until connected
-    broadcastPositionRef.current = (pos: PresenceUser) => {
-      socket.emit("pos", pos);
-    };
-    updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) => {
+    broadcastPositionRef.current = (pos: PresenceUser) => socket.emit("pos", pos);
+    updatePresenceRef.current = (pos: { c: number; r: number; facing: string; sitting: boolean }) =>
       socket.emit("update-presence", { name: whoAmI, ...pos });
-    };
 
-    // On connect (and every reconnect) — re-register presence with last known position
     const onConnect = () => {
       const savedRaw = localStorage.getItem(posKey(whoAmI.toLowerCase()));
       const saved = savedRaw ? JSON.parse(savedRaw) as { c: number; r: number; facing: string; sitting: boolean } : null;
+      const seat = seatByNameRef.current[whoAmI.toLowerCase()];
       socket.emit("join", {
         name: whoAmI,
-        c: saved?.c ?? 0,
-        r: saved?.r ?? 0,
-        facing: saved?.facing ?? "down",
+        c: saved?.c ?? seat?.c ?? 0,
+        r: saved?.r ?? seat?.r ?? 0,
+        facing: saved?.facing ?? seat?.facing ?? "down",
         sitting: saved?.sitting ?? false,
+        status: myStatusRef.current,
       });
     };
     socket.on("connect", onConnect);
-    // If already connected (e.g. socket reused from singleton), join immediately
     if (socket.connected) onConnect();
 
-    // High-frequency position updates — mutate ref directly, render loop reads it
     const onPos = (payload: PresenceUser) => {
       if (!payload?.name || payload.name === whoAmI) return;
       remoteUsersRef.current[payload.name] = payload;
     };
     socket.on("pos", onPos);
 
-    // Sound / navigation events
-    const onWave = () => { playTing(); };
-    const onChime = () => { playChime(); };
-    const onMeetInvite = ({ from, room }: { from: string; room: string }) => {
-      if (!room) return;
-      goToRoomRef.current?.(room);
-      playChime();
-      setMeetInviteToast({ from, room });
-      setTimeout(() => setMeetInviteToast(null), 5000);
-    };
-    socket.on("wave", onWave);
-    socket.on("chime", onChime);
-    socket.on("meet-invite", onMeetInvite);
-
-    // Full presence snapshot when we first connect (replaces Supabase "sync")
     const onSync = (state: Record<string, { name: string; c?: number; r?: number; facing?: string; sitting?: boolean }>) => {
       for (const [, pres] of Object.entries(state)) {
         if (pres.name === whoAmI) continue;
@@ -401,7 +375,6 @@ export default function Office() {
     };
     socket.on("sync", onSync);
 
-    // New user joined (replaces Supabase "join")
     const onJoin = ({ key, pres }: { key: string; pres: { name: string; c?: number; r?: number; facing?: string; sitting?: boolean } }) => {
       if (key === whoAmI) return;
       const name = pres?.name ?? key;
@@ -417,7 +390,6 @@ export default function Office() {
     };
     socket.on("join", onJoin);
 
-    // User left (replaces Supabase "leave")
     const onLeave = ({ key, name }: { key: string; name: string }) => {
       if (key === whoAmI) return;
       delete remoteUsersRef.current[key];
@@ -426,15 +398,28 @@ export default function Office() {
     };
     socket.on("leave", onLeave);
 
+    const onWave = () => playTing();
+    const onChime = () => playChime();
+    const onMeetInvite = ({ from, room }: { from: string; room: string }) => {
+      if (!room) return;
+      goToRoomRef.current?.(room);
+      playChime();
+      setMeetInviteToast({ from, room });
+      setTimeout(() => setMeetInviteToast(null), 5000);
+    };
+    socket.on("wave", onWave);
+    socket.on("chime", onChime);
+    socket.on("meet-invite", onMeetInvite);
+
     return () => {
       socket.off("connect", onConnect);
       socket.off("pos", onPos);
-      socket.off("wave", onWave);
-      socket.off("chime", onChime);
-      socket.off("meet-invite", onMeetInvite);
       socket.off("sync", onSync);
       socket.off("join", onJoin);
       socket.off("leave", onLeave);
+      socket.off("wave", onWave);
+      socket.off("chime", onChime);
+      socket.off("meet-invite", onMeetInvite);
       broadcastPositionRef.current = null;
       updatePresenceRef.current = null;
     };
@@ -1198,6 +1183,7 @@ export default function Office() {
           const liveNames = new Set(Object.keys(remoteUsersRef.current).map((n) => n.toLowerCase()));
           if (whoAmIRef.current) liveNames.add(whoAmIRef.current.toLowerCase());
           const clickedNpc = world.npcs.find((n) =>
+            n.status !== "offline" &&
             !liveNames.has(n.id.toLowerCase()) &&
             t.c >= n.c - 1 && t.c <= n.c + 1 && t.r >= n.r - 1 && t.r <= n.r + 1
           );
@@ -1219,7 +1205,7 @@ export default function Office() {
             if (clickedRemote) {
               const [name] = clickedRemote;
               const rs = remoteState[name];
-              const modal = { id: name, name, status: "online" };
+              const modal = { id: name, name, status: remoteUsersRef.current[name]?.status ?? "online" };
               npcModalRef.current = modal;
               const initPos = { x: rs.x, y: rs.y - 40 };
               npcModalPosRef.current = initPos;
@@ -1670,6 +1656,28 @@ export default function Office() {
         if (effective) playTing();
       }
 
+      // NPC desk/chair hover label — show "[Name]'s desk" when mouse is near their seat area
+      if (!editLayoutRef.current) {
+        const mp = mousePxRef.current;
+        const hoverC = Math.floor(mp.x / TILE);
+        const hoverR = Math.floor(mp.y / TILE);
+        for (const n of world.npcs) {
+          if (Math.abs(hoverC - n.c) <= 2 && Math.abs(hoverR - n.r) <= 3) {
+            const labelText = `${n.name}'s desk`;
+            const lx = X(mp.x);
+            const ly = X(mp.y) - 18;
+            ctx.font = `600 ${6 * SCALE}px ui-sans-serif, system-ui, sans-serif`;
+            const tw = ctx.measureText(labelText).width;
+            const pad = 10, th = 22;
+            ctx.fillStyle = "rgba(10,12,18,0.90)";
+            roundRect(lx - tw / 2 - pad, ly - th, tw + pad * 2, th, 6); ctx.fill();
+            ctx.fillStyle = "#ffffff"; ctx.textBaseline = "middle";
+            ctx.fillText(labelText, lx - tw / 2, ly - th / 2);
+            break;
+          }
+        }
+      }
+
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -2064,7 +2072,7 @@ export default function Office() {
             <div className="whoGrid">
               {TEAM_MEMBERS.map((name) => (
                 <button key={name} className="whoBtn"
-                  onClick={() => { localStorage.setItem(WHO_KEY, name); whoAmIRef.current = name; setWhoAmI(name); playChime(); }}>
+                  onClick={() => { sessionStorage.setItem(WHO_KEY, name); whoAmIRef.current = name; setWhoAmI(name); playChime(); }}>
                   <span className="whoAvatar">{name[0]}</span>
                   <span className="whoName">{name}</span>
                 </button>
