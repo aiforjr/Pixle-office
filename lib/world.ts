@@ -320,10 +320,10 @@ export function buildWorld(): World {
   ];
 
   const npcs: NPC[] = [
-    { id: "sagar",   name: "Sagar",   c: 61, r: 48, status: "offline", skinKey: "sagar",   facing: "up", seat: { seat: "#d96a1a", seatHi: "#f08840" }, slackUserId: "U_SAGAR_ID" },
-    { id: "neel",    name: "Neel",    c: 47, r: 48, status: "offline", skinKey: "neel",    facing: "up", seat: { seat: "#3a6fd0", seatHi: "#5b8fe8" }, slackUserId: "U_NEEL_ID" },
-    { id: "manjima", name: "Manjima", c: 54, r: 48, status: "offline", skinKey: "manjima", facing: "up", seat: { seat: "#d04a8a", seatHi: "#e86aaa" }, slackUserId: "U_MAMJIMA_ID" },
-    { id: "pramit",  name: "Pramit",  c: 47, r: 60, status: "offline", skinKey: "pramit",  facing: "up", seat: { seat: "#3a9e52", seatHi: "#56c470" }, slackUserId: "U_PRAMIT_ID" },
+    { id: "sagar",   name: "Sagar",   c: 61, r: 48, status: "offline", skinKey: "sagar",   facing: "up", seat: { seat: "#d96a1a", seatHi: "#f08840" }, slackUserId: "D0ALF3H3FPT" },
+    { id: "neel",    name: "Neel",    c: 47, r: 48, status: "offline", skinKey: "neel",    facing: "up", seat: { seat: "#3a6fd0", seatHi: "#5b8fe8" }, slackUserId: "D0BAREP8ASZ" },
+    { id: "manjima", name: "Manjima", c: 54, r: 48, status: "offline", skinKey: "manjima", facing: "up", seat: { seat: "#d04a8a", seatHi: "#e86aaa" }, slackUserId: "D0BBNKMNM7S" },
+    { id: "pramit",  name: "Pramit",  c: 47, r: 60, status: "offline", skinKey: "pramit",  facing: "up", seat: { seat: "#3a9e52", seatHi: "#56c470" }, slackUserId: "D0BAQV1UDRT" },
   ];
 
   const world: World = {
@@ -413,8 +413,23 @@ export function rebuildWalk(world: World) {
       if (walk[tr]?.[tc] !== undefined) walk[tr][tc] = false;
       continue;
     }
-    for (let r = o.r; r < o.r + o.h; r++)
-      for (let c = o.c; c < o.c + o.w; c++) if (walk[r]?.[c] !== undefined) walk[r][c] = false;
+    const s = o.scale ?? 1;
+    if (s <= 1) {
+      for (let r = o.r; r < o.r + o.h; r++)
+        for (let c = o.c; c < o.c + o.w; c++) if (walk[r]?.[c] !== undefined) walk[r][c] = false;
+    } else {
+      // Scale pivots at tile-center; block the expanded visual footprint
+      const pivotC = o.c + o.w / 2;
+      const pivotR = o.r + o.h / 2;
+      const halfW = (o.w / 2) * s;
+      const halfH = (o.h / 2) * s;
+      const c0 = Math.floor(pivotC - halfW);
+      const c1 = Math.ceil(pivotC + halfW) - 1;
+      const r0 = Math.floor(pivotR - halfH);
+      const r1 = Math.ceil(pivotR + halfH) - 1;
+      for (let r = r0; r <= r1; r++)
+        for (let c = c0; c <= c1; c++) if (walk[r]?.[c] !== undefined) walk[r][c] = false;
+    }
   }
   for (const n of npcs) if (n.status !== "offline" && walk[n.r]?.[n.c] !== undefined) walk[n.r][n.c] = false;
 }

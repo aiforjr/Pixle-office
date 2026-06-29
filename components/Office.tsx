@@ -169,7 +169,7 @@ type ApiHandle = {
   setCustomFloorColor: (hex: string) => void;
   goToDesk: () => void;
   goToNpc: (npcId: string) => void;
-  goToRandomRoom: () => string | null;
+  goToRandomRoom: (excludeLabel?: string) => string | null;
 };
 
 function ItemPreview({ entry }: { entry: CatalogEntry }) {
@@ -249,7 +249,7 @@ export default function Office() {
   // Native-px position of the NPC that triggered the modal — updated every frame
   const npcModalPosRef = useRef<{ x: number; y: number } | null>(null);
   const [npcModalPos, setNpcModalPos] = useState<{ x: number; y: number } | null>(null);
-  type MeetPrompt = { kind: "npc"; name: string } | { kind: "room"; name: string } | null;
+  type MeetPrompt = { kind: "npc"; name: string; slackUserId?: string } | { kind: "room"; name: string } | null;
   const [meetPrompt, setMeetPrompt] = useState<MeetPrompt>(null);
   const meetPromptRef = useRef<MeetPrompt>(null);
   const meetDismissedRef = useRef<MeetPrompt>(null);
@@ -267,18 +267,21 @@ export default function Office() {
   const [meetInviteToast, setMeetInviteToast] = useState<{ from: string; room: string } | null>(null);
   const goToRoomRef = useRef<((roomLabel: string) => void) | null>(null);
 
-  const MEET_LINK = "https://meet.google.com/qzr-qkwn-bxx";
-  const SLACK_TEAM_ID = "T_YOUR_TEAM_ID";
-  const SLACK_CHANNEL_ID = "C_YOUR_CHANNEL_ID";
-  const slackChannelUrl = `slack://channel?team=${SLACK_TEAM_ID}&id=${SLACK_CHANNEL_ID}`;
-  const slackDmUrl = (userId: string) => `slack://user?team=${SLACK_TEAM_ID}&id=${userId}`;
+  const MEET_LINK = "https://meet.google.com/ndn-bnwa-hgd";
+  const SLACK_TEAM_ID = "T0AKVQ7N3DH";
+  const SLACK_FALLBACK_URL = "https://aiforjr.slack.com/messages";
+  const slackChannelUrl = `slack://channel?team=${SLACK_TEAM_ID}&id=C0AKLQB8JAK`;
+  // DM IDs are direct-message channel IDs — open via channel deep-link
+  const slackDmUrl = (dmChannelId: string) =>
+    `slack://channel?team=${SLACK_TEAM_ID}&id=${dmChannelId}`;
 
   const SLACK_CHANNELS = [
-    { name: "general",     id: "C_GENERAL_ID" },
-    { name: "design",      id: "C_DESIGN_ID" },
-    { name: "engineering", id: "C_ENGINEERING_ID" },
-    { name: "random",      id: "C_RANDOM_ID" },
-    { name: "office",      id: "C_OFFICE_ID" },
+    { name: "core-product",    id: "C0AKLQB8JAK" },
+    { name: "math-product",    id: "C0BB86KDQRJ" },
+    { name: "ai-coding",       id: "C0BDKBGHXNX" },
+    { name: "english-product", id: "C0BB2FJJRQE" },
+    { name: "marketing",       id: "C0AL06GJGTY" },
+    { name: "general",         id: "C0BDN9EN7EZ" },
   ];
 
   const playTing = () => {
@@ -1007,11 +1010,17 @@ export default function Office() {
         player.pendingSit = null;
         destMarker = goal;
       },
-      goToRandomRoom: () => {
-        const meetingRooms = world.rooms.filter((r) => r.label !== "Reception");
+      goToRandomRoom: (excludeLabel?: string) => {
+        const meetingRooms = world.rooms.filter((r) => r.label !== "Reception" && r.label.toLowerCase().includes("meeting"));
         if (!meetingRooms.length) return null;
-        const idx = Math.floor(Math.random() * meetingRooms.length);
-        const room = meetingRooms[idx];
+        // Prefer a room that isn't occupied (no remote users or player inside it)
+        const allUsers = [...Object.values(remoteUsersRef.current), { c: player.tile.c, r: player.tile.r } as PresenceUser];
+        const isOccupied = (room: Room) => allUsers.some((u) => isInsideRoom(room, u.c, u.r));
+        const available = meetingRooms.filter((r) => r.label !== excludeLabel && !isOccupied(r));
+        const pool = available.length > 0 ? available : meetingRooms.filter((r) => r.label !== excludeLabel);
+        const candidates = pool.length > 0 ? pool : meetingRooms;
+        const idx = Math.floor(Math.random() * candidates.length);
+        const room = candidates[idx];
         const R = room.rect;
         const centerC = Math.round((R.c0 + R.c1) / 2);
         const centerR = Math.round((R.r0 + R.r1) / 2);
@@ -1033,6 +1042,8 @@ export default function Office() {
     goToRoomRef.current = (roomLabel: string) => {
       const room = world.rooms.find((r) => r.label === roomLabel);
       if (!room) return;
+      // Already inside the target room — don't move
+      if (isInsideRoom(room, player.tile.c, player.tile.r)) return;
       const R = room.rect;
       const centerC = Math.round((R.c0 + R.c1) / 2);
       const centerR = Math.round((R.r0 + R.r1) / 2);
@@ -1604,7 +1615,7 @@ export default function Office() {
         if (n.status === "offline") continue;
         if (onlineNames.has(n.id.toLowerCase())) continue;
         if (Math.abs(pc - n.c) <= 2 && Math.abs(pr - n.r) <= 2) {
-          newPrompt = { kind: "npc", name: n.name };
+          newPrompt = { kind: "npc", name: n.name, slackUserId: n.slackUserId };
           break;
         }
       }
@@ -1622,8 +1633,7 @@ export default function Office() {
       if (!newPrompt) {
         let foundRoom: string | null = null;
         for (const room of world.rooms) {
-          // Skip meeting rooms — prompt should only appear outside meeting rooms
-          if (room.label.toLowerCase().includes("meeting")) continue;
+          if (room.label === "Reception") continue;
           if (isInsideRoom(room, pc, pr)) {
             newPrompt = { kind: "room", name: room.label };
             foundRoom = room.label;
@@ -1632,7 +1642,16 @@ export default function Office() {
         }
         currentRoomRef.current = foundRoom;
       } else {
-        currentRoomRef.current = null;
+        // Still track if player is inside a meeting room even when near an NPC
+        let foundRoom: string | null = null;
+        for (const room of world.rooms) {
+          if (room.label === "Reception") continue;
+          if (isInsideRoom(room, pc, pr)) {
+            foundRoom = room.label;
+            break;
+          }
+        }
+        currentRoomRef.current = foundRoom;
       }
       // Clear dismissed state when the trigger context changes
       const dismissed = meetDismissedRef.current;
@@ -1652,8 +1671,9 @@ export default function Office() {
       if (changed) {
         meetPromptRef.current = effective;
         setMeetPrompt(effective);
-        // Play a soft ting when a new meet prompt appears (user came near someone or entered a room)
-        if (effective) playTing();
+        // Play a soft ting when a new meet prompt appears — but only if the player
+        // has stopped (not mid-path), so walking past an NPC doesn't trigger it.
+        if (effective && player.path.length === 0) playTing();
       }
 
       // NPC desk/chair hover label — show "[Name]'s desk" when mouse is near their seat area
@@ -1798,7 +1818,7 @@ export default function Office() {
           <div className="slackChannelHeader">
             <span className="slackChannelLabel">Channels</span>
             <div className="slackAppIcons">
-              <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer" title="Google Meet" data-tooltip="Meet" className="slackAppIcon">
+              <a href={MEET_LINK} target="_blank" rel="noopener noreferrer" title="Google Meet" data-tooltip="Meet" className="slackAppIcon">
                 <svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M28 24L38.5 15V33L28 24Z" fill="#00832D"/>
                   <rect x="9" y="15" width="19" height="18" rx="2" fill="#00832D"/>
@@ -1829,7 +1849,7 @@ export default function Office() {
                   <path d="M4 28l9 14h22l9-14H4z" fill="#FFBA00"/>
                 </svg>
               </a>
-              <a href={`slack://open?team=${SLACK_TEAM_ID}`} target="_blank" rel="noopener noreferrer" title="Slack" data-tooltip="Slack" className="slackAppIcon">
+              <a href={`slack://open?team=${SLACK_TEAM_ID}`} onClick={(e) => { e.preventDefault(); const t = Date.now(); window.location.href = `slack://open?team=${SLACK_TEAM_ID}`; setTimeout(() => { if (Date.now() - t < 1600) window.open(SLACK_FALLBACK_URL, "_blank"); }, 1500); }} target="_blank" rel="noopener noreferrer" title="Slack" data-tooltip="Slack" className="slackAppIcon">
                 <svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18 6a4 4 0 00-4 4v8h8V10a4 4 0 00-4-4z" fill="#E01E5A"/>
                   <path d="M6 18a4 4 0 004 4h8v-8H10a4 4 0 00-4 4z" fill="#E01E5A"/>
@@ -1845,13 +1865,19 @@ export default function Office() {
           </div>
           <div className="slackChannelDivider" />
           <div className="slackChannelGrid">
-            {SLACK_CHANNELS.slice(0, 5).map((ch) => (
+            {SLACK_CHANNELS.map((ch) => (
               <a
                 key={ch.id}
                 className="slackChannelPill"
                 href={`slack://channel?team=${SLACK_TEAM_ID}&id=${ch.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const t = Date.now();
+                  window.location.href = `slack://channel?team=${SLACK_TEAM_ID}&id=${ch.id}`;
+                  setTimeout(() => {
+                    if (Date.now() - t < 1600) window.open(`https://app.slack.com/client/${SLACK_TEAM_ID}/${ch.id}`, "_blank");
+                  }, 1500);
+                }}
                 title={`Open #${ch.name} in Slack`}
               >
                 #{ch.name}
@@ -1994,7 +2020,15 @@ export default function Office() {
             <a className="meetPromptJoin" href={MEET_LINK} target="_blank" rel="noopener noreferrer" onClick={() => { playChime(); broadcastChime(); }}>
               Join Meet
             </a>
-            <a className="meetPromptSlack" href={slackChannelUrl} target="_blank" rel="noopener noreferrer">
+            <a className="meetPromptSlack" href={meetPrompt.kind === "npc" && meetPrompt.slackUserId ? slackDmUrl(meetPrompt.slackUserId) : slackChannelUrl} onClick={(e) => {
+              e.preventDefault();
+              const dmId = meetPrompt.kind === "npc" && meetPrompt.slackUserId ? meetPrompt.slackUserId : null;
+              const deepLink = dmId ? slackDmUrl(dmId) : slackChannelUrl;
+              const webUrl = dmId ? `https://app.slack.com/client/${SLACK_TEAM_ID}/${dmId}` : SLACK_FALLBACK_URL;
+              const t = Date.now();
+              window.location.href = deepLink;
+              setTimeout(() => { if (Date.now() - t < 1600) window.open(webUrl, "_blank"); }, 1500);
+            }}>
               Slack
             </a>
             <button className="meetPromptWave" title="Wave hello" onClick={() => { playTing(); broadcastWave(); }}>
@@ -2043,16 +2077,36 @@ export default function Office() {
                 Go to them
               </button>
               {npcModal.slackUserId && (
-                <a className="npcModalSlackBtn" href={slackDmUrl(npcModal.slackUserId)} target="_blank" rel="noopener noreferrer" onClick={() => { setNpcModal(null); npcModalRef.current = null; npcModalPosRef.current = null; setNpcModalPos(null); }}>
+                <a className="npcModalSlackBtn" href={slackDmUrl(npcModal.slackUserId)} onClick={(e) => {
+                  e.preventDefault();
+                  setNpcModal(null); npcModalRef.current = null; npcModalPosRef.current = null; setNpcModalPos(null);
+                  const dmId = npcModal.slackUserId!;
+                  const t = Date.now();
+                  window.location.href = slackDmUrl(dmId);
+                  setTimeout(() => {
+                    if (Date.now() - t < 1600) window.open(`https://app.slack.com/client/${SLACK_TEAM_ID}/${dmId}`, "_blank");
+                  }, 1500);
+                }}>
+                  Message on Slack
+                </a>
+              )}
+              {!npcModal.slackUserId && (
+                <a className="npcModalSlackBtn" href={SLACK_FALLBACK_URL} target="_blank" rel="noopener noreferrer">
                   Message on Slack
                 </a>
               )}
               <button className="npcModalInviteBtn" onClick={() => {
                 playChime();
-                const alreadyInRoom = currentRoomRef.current && currentRoomRef.current !== "Reception";
-                const roomLabel = alreadyInRoom
-                  ? currentRoomRef.current!
-                  : (apiRef.current?.goToRandomRoom() ?? "Meeting Room");
+                const currentRoom = currentRoomRef.current;
+                const inMeetingRoom = currentRoom && currentRoom.toLowerCase().includes("meeting");
+                let roomLabel: string;
+                if (inMeetingRoom) {
+                  // Already in a meeting room — stay put, invite the other person here
+                  roomLabel = currentRoom!;
+                } else {
+                  // Find an available (unoccupied) meeting room and navigate there
+                  roomLabel = apiRef.current?.goToRandomRoom() ?? "Meeting Room";
+                }
                 broadcastMeetInvite(roomLabel);
                 navigator.clipboard?.writeText(MEET_LINK).catch(() => {});
                 setNpcModal(null); npcModalRef.current = null; npcModalPosRef.current = null; setNpcModalPos(null);
