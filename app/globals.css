@@ -228,8 +228,8 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.845);
   text-decoration: none;
@@ -301,6 +301,7 @@ canvas {
 .zoomControls {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 4px;
   padding: 5px 8px;
   background: rgba(18, 22, 28, 0.92);
@@ -352,6 +353,7 @@ canvas {
   color: #c8d8f0;
   background: rgba(54, 90, 148, 0.85);
   border-color: rgba(100, 150, 220, 0.3);
+  margin-left: auto;
 }
 
 .zoomControls button.goToDeskBtn:hover {
@@ -811,15 +813,18 @@ canvas {
 
 .meetPromptJoin {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   background: #1a73e8;
   border: none;
-  border-radius: 7px;
-  padding: 7px 12px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 14px;
   cursor: pointer;
   text-decoration: none;
+  display: flex;
+  align-items: center;
   transition: background 0.12s;
   flex-shrink: 0;
 }
@@ -856,8 +861,8 @@ canvas {
 
 .meetPromptWave {
   font-size: 16px;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -880,15 +885,18 @@ canvas {
 
 .meetPromptSlack {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   background: #4a154b;
   border: none;
-  border-radius: 7px;
-  padding: 7px 12px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 14px;
   cursor: pointer;
   text-decoration: none;
+  display: flex;
+  align-items: center;
   transition: background 0.12s;
   flex-shrink: 0;
 }
@@ -916,12 +924,12 @@ canvas {
   background: rgba(14, 18, 26, 0.98);
   border: 1px solid rgba(90, 160, 255, 0.3);
   border-radius: 16px;
-  padding: 36px 32px 28px;
+  padding: 28px 28px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  min-width: 260px;
+  gap: 0;
+  min-width: 240px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(90, 160, 255, 0.12);
   animation: npcSlideUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -933,20 +941,20 @@ canvas {
 
 .npcModalAvatar {
   position: relative;
-  width: 72px;
-  height: 72px;
-  margin-bottom: 4px;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 12px;
 }
 
 .npcModalAvatarInitial {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: rgba(54, 90, 148, 0.8);
-  font-size: 30px;
+  font-size: 24px;
   font-weight: 700;
   color: #9fd2ff;
   border: 2px solid rgba(90, 160, 255, 0.35);
@@ -954,19 +962,21 @@ canvas {
 
 .npcModalStatusDot {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 16px;
-  height: 16px;
+  bottom: 1px;
+  right: 1px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
-  border: 2.5px solid rgba(14, 18, 26, 0.98);
+  border: 2px solid rgba(14, 18, 26, 0.98);
 }
 
 .npcModalName {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 700;
   color: #e8eef6;
   text-align: center;
+  line-height: 1.2;
+  margin-bottom: 3px;
 }
 
 .npcModalStatus {
@@ -975,27 +985,27 @@ canvas {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: center;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
 }
 
 .npcModalActions {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 0;
   width: 100%;
 }
 
 .npcModalWaveBtn {
-  font-size: 22px;
-  height: 44px;
+  font-size: 20px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(40, 46, 60, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s, transform 0.1s;
 }
@@ -1016,8 +1026,12 @@ canvas {
   color: #fff;
   background: rgba(54, 90, 148, 0.9);
   border: 1px solid rgba(90, 160, 255, 0.35);
-  border-radius: 10px;
-  padding: 11px 16px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: background 0.12s;
   white-space: nowrap;
@@ -1034,13 +1048,16 @@ canvas {
   color: #fff;
   background: #4a154b;
   border: 1px solid rgba(200, 100, 210, 0.35);
-  border-radius: 10px;
-  padding: 11px 16px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   text-decoration: none;
   transition: background 0.12s;
   white-space: nowrap;
-  text-align: center;
 }
 
 .npcModalSlackBtn:hover {
@@ -1054,8 +1071,12 @@ canvas {
   color: #fff;
   background: rgba(40, 120, 80, 0.9);
   border: 1px solid rgba(80, 200, 120, 0.35);
-  border-radius: 10px;
-  padding: 11px 16px;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: background 0.12s;
   white-space: nowrap;
