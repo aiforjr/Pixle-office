@@ -325,10 +325,13 @@ export default function Office() {
   };
 
   const socketRef = useRef<Socket | null>(null);
+  const meetToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const broadcastWave = () => socketRef.current?.emit("wave", { from: whoAmI ?? "Someone" });
-  const broadcastChime = () => socketRef.current?.emit("chime", { from: whoAmI ?? "Someone" });
-  const broadcastMeetInvite = (roomLabel: string) => socketRef.current?.emit("meet-invite", { from: whoAmI ?? "Someone", room: roomLabel });
+  // Read the name through the ref: these are captured once by the canvas effect,
+  // where the `whoAmI` state closure would still be null from the first render.
+  const broadcastWave = () => socketRef.current?.emit("wave", { from: whoAmIRef.current ?? "Someone" });
+  const broadcastChime = () => socketRef.current?.emit("chime", { from: whoAmIRef.current ?? "Someone" });
+  const broadcastMeetInvite = (roomLabel: string) => socketRef.current?.emit("meet-invite", { from: whoAmIRef.current ?? "Someone", room: roomLabel });
 
   useEffect(() => {
     if (!whoAmI) return;
@@ -363,6 +366,11 @@ export default function Office() {
     socket.on("pos", onPos);
 
     const onSync = (state: Record<string, { name: string; c?: number; r?: number; facing?: string; sitting?: boolean }>) => {
+      // The sync snapshot is authoritative: drop users who left while we were disconnected
+      // (their "leave" event was missed), otherwise their ghost avatar lingers forever.
+      const namesInState = new Set(Object.values(state).map((p) => p.name));
+      for (const existing of Object.keys(remoteUsersRef.current))
+        if (!namesInState.has(existing)) delete remoteUsersRef.current[existing];
       for (const [, pres] of Object.entries(state)) {
         if (pres.name === whoAmI) continue;
         if (!remoteUsersRef.current[pres.name]) {
@@ -408,7 +416,8 @@ export default function Office() {
       goToRoomRef.current?.(room);
       playChime();
       setMeetInviteToast({ from, room });
-      setTimeout(() => setMeetInviteToast(null), 5000);
+      if (meetToastTimerRef.current) clearTimeout(meetToastTimerRef.current);
+      meetToastTimerRef.current = setTimeout(() => setMeetInviteToast(null), 5000);
     };
     socket.on("wave", onWave);
     socket.on("chime", onChime);
@@ -423,6 +432,7 @@ export default function Office() {
       socket.off("wave", onWave);
       socket.off("chime", onChime);
       socket.off("meet-invite", onMeetInvite);
+      if (meetToastTimerRef.current) { clearTimeout(meetToastTimerRef.current); meetToastTimerRef.current = null; }
       broadcastPositionRef.current = null;
       updatePresenceRef.current = null;
     };
@@ -448,8 +458,9 @@ export default function Office() {
     const originalPatchIds = new Set(world.patches.map((p) => p.id));
 
 
-    // Always seed with the latest default layout (overrides any previously saved version)
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(DEFAULT_LAYOUT));
+    // Seed the default layout once per LAYOUT_KEY version (bump the version to force-reset
+    // everyone's layout). Seeding unconditionally would wipe user-saved layouts on reload.
+    if (!localStorage.getItem(LAYOUT_KEY)) localStorage.setItem(LAYOUT_KEY, JSON.stringify(DEFAULT_LAYOUT));
 
     // Restore saved layout from localStorage
     const raw = typeof window !== "undefined" ? localStorage.getItem(LAYOUT_KEY) : null;
@@ -633,8 +644,9 @@ export default function Office() {
       if (s.kind === "object") {
         const o = s.obj;
         const sc = o.scale ?? 1;
+        // Same tile-center pivot the renderer and rebuildWalk use
         const pivotX = (o.c + o.w / 2) * TILE;
-        const pivotY = (o.r + o.h) * TILE;
+        const pivotY = (o.r + o.h / 2) * TILE;
         const x1 = pivotX + ((o.c + o.w) * TILE - pivotX) * sc;
         const y0 = pivotY + (o.r * TILE - pivotY) * sc;
         return [{ id: "scale", xN: x1, yN: y0 }];
@@ -749,6 +761,7 @@ export default function Office() {
       scale: (d) => {
         if (sel?.kind === "object") {
           sel.obj.scale = clamp((sel.obj.scale ?? 1) + d, 0.4, 3);
+          rebuildWalk(world); // blocked footprint depends on scale
         }
       },
       duplicate: () => {
@@ -994,12 +1007,16 @@ export default function Office() {
       },
       goToDesk: () => {
         const desk = startChair ?? sagarChair;
-        commandTo(desk.c, desk.r);
+        if (desk) commandTo(desk.c, desk.r);
       },
       goToNpc: (npcId: string) => {
-        const npc = world.npcs.find((n) => n.id === npcId);
-        if (!npc) return;
-        const goal = nearestWalkable(world.walk, { c: npc.c, r: npc.r });
+        // Live remote users take priority (walk to their current position);
+        // fall back to the static NPC desk. Modal ids use display names, NPC ids are lowercase.
+        const remote = remoteUsersRef.current[npcId];
+        const npc = world.npcs.find((n) => n.id === npcId.toLowerCase());
+        const target = remote ? { c: remote.c, r: remote.r } : npc ? { c: npc.c, r: npc.r } : null;
+        if (!target) return;
+        const goal = nearestWalkable(world.walk, target);
         if (!goal) return;
         const origin = player.sitting ? player.standTile : player.tile;
         const path = bfs(world.walk, origin, goal);
@@ -1073,7 +1090,7 @@ export default function Office() {
             const o = sel.obj;
             press.mode = "scale";
             press.pivotX = (o.c + o.w / 2) * TILE;
-            press.pivotY = (o.r + o.h) * TILE;
+            press.pivotY = (o.r + o.h / 2) * TILE;
             press.startDist = Math.max(3, Math.hypot(p.x - press.pivotX, p.y - press.pivotY));
             press.startScale = o.scale ?? 1;
           } else if (h.id === "door") {
@@ -1161,7 +1178,11 @@ export default function Office() {
     };
 
     const onUp = (e: MouseEvent) => {
-      if (press?.dragging) { press = null; return; }
+      if (press?.dragging) {
+        if (press.mode === "scale") rebuildWalk(world); // blocked footprint depends on scale
+        press = null;
+        return;
+      }
       const t = press?.tile ?? null;
       press = null;
       if (!t) return;
@@ -1429,6 +1450,9 @@ export default function Office() {
         },
       });
 
+      // Drop interpolation state for users who left, so the click hit-test can't find them
+      for (const name of Object.keys(remoteState))
+        if (!remoteUsersRef.current[name]) delete remoteState[name];
       // Draw remote users (y-sorted with other items) — interpolate smoothly toward broadcast position
       for (const [name, ru] of Object.entries(remoteUsersRef.current)) {
         const skinKey = getSkinKey(name);
@@ -1532,9 +1556,9 @@ export default function Office() {
         let bx: number, by: number, bw: number, bh: number;
         if (sel.kind === "object") {
           const o = sel.obj; const s = o.scale ?? 1;
-          const pivotX = (o.c + o.w / 2) * TILE, pivotY = (o.r + o.h) * TILE;
+          const pivotX = (o.c + o.w / 2) * TILE, pivotY = (o.r + o.h / 2) * TILE;
           const x0 = pivotX + (o.c * TILE - pivotX) * s, x1 = pivotX + ((o.c + o.w) * TILE - pivotX) * s;
-          const y0 = pivotY + (o.r * TILE - pivotY) * s, y1 = pivotY;
+          const y0 = pivotY + (o.r * TILE - pivotY) * s, y1 = pivotY + ((o.r + o.h) * TILE - pivotY) * s;
           bx = X(x0); by = X(y0); bw = X(x1 - x0); bh = X(y1 - y0);
         } else {
           const R = selRect(sel);
@@ -1569,11 +1593,15 @@ export default function Office() {
         }
       }
 
-      // Update modal anchor position every frame so the card tracks the NPC
+      // Update modal anchor position every frame so the card tracks the NPC / live user
       if (npcModalRef.current) {
-        const mn = world.npcs.find((n) => n.id === npcModalRef.current!.id);
-        if (mn) {
-          const newPos = { x: mn.c * TILE + TILE / 2, y: mn.r * TILE - 36 };
+        const modalId = npcModalRef.current.id;
+        const rsm = remoteUsersRef.current[modalId] ? remoteState[modalId] : undefined;
+        const mn = world.npcs.find((n) => n.id === modalId);
+        const newPos = rsm
+          ? { x: rsm.x, y: rsm.y - 40 }
+          : mn ? { x: mn.c * TILE + TILE / 2, y: mn.r * TILE - 36 } : null;
+        if (newPos) {
           const prev = npcModalPosRef.current;
           if (!prev || Math.abs(prev.x - newPos.x) > 0.5 || Math.abs(prev.y - newPos.y) > 0.5) {
             npcModalPosRef.current = newPos;
@@ -2062,11 +2090,11 @@ export default function Office() {
             <button className="npcModalClose" onClick={() => { setNpcModal(null); npcModalRef.current = null; npcModalPosRef.current = null; setNpcModalPos(null); }}>✕</button>
             <div className="npcModalAvatar">
               <span className="npcModalAvatarInitial">{npcModal.name[0]}</span>
-              <span className="npcModalStatusDot" style={{ background: npcModal.status === "online" ? "#22c55e" : npcModal.status === "away" ? "#eab308" : "#ef4444" }} />
+              <span className="npcModalStatusDot" style={{ background: STATUS_COLOR[npcModal.status as keyof typeof STATUS_COLOR] ?? STATUS_COLOR.offline }} />
             </div>
             <div className="npcModalName">{npcModal.name}</div>
-            <div className="npcModalStatus" style={{ color: npcModal.status === "online" ? "#22c55e" : npcModal.status === "away" ? "#eab308" : "#ef4444" }}>
-              {npcModal.status === "online" ? "Online" : npcModal.status === "away" ? "Away" : "Offline"}
+            <div className="npcModalStatus" style={{ color: STATUS_COLOR[npcModal.status as keyof typeof STATUS_COLOR] ?? STATUS_COLOR.offline }}>
+              {npcModal.status === "online" ? "Online" : npcModal.status === "busy" ? "Busy" : npcModal.status === "away" ? "Away" : "Offline"}
             </div>
             <div className="npcModalActions">
               <button className="npcModalWaveBtn" onClick={() => { playTing(); broadcastWave(); }} title="Wave hello">

@@ -27,6 +27,8 @@ type PositionPayload = {
 
 // Server-side presence store: username → last known presence
 const presence = new Map<string, PresencePayload>();
+// username → socket.id that currently owns the presence entry (latest join wins)
+const presenceOwner = new Map<string, string>();
 
 const app = next({ dev, hostname: "localhost", port });
 const handle = app.getRequestHandler();
@@ -49,8 +51,15 @@ app.prepare().then(() => {
 
     // Client registers on connect (and on every reconnect)
     socket.on("join", (payload: PresencePayload) => {
+      // If this socket re-joins under a new name, release the old one
+      if (myName && myName !== payload.name && presenceOwner.get(myName) === socket.id) {
+        presence.delete(myName);
+        presenceOwner.delete(myName);
+        socket.to("pixle-office").emit("leave", { key: myName, name: myName });
+      }
       myName = payload.name;
       presence.set(myName, payload);
+      presenceOwner.set(myName, socket.id);
       socket.join("pixle-office");
 
       // Send the full current presence state to the new user
@@ -62,21 +71,20 @@ app.prepare().then(() => {
 
     // High-frequency position relay (~10 Hz) — just forward, don't broadcast back to sender
     socket.on("pos", (payload: PositionPayload) => {
-      if (myName) {
-        const existing = presence.get(myName);
-        if (existing) {
-          existing.c = payload.c;
-          existing.r = payload.r;
-          existing.facing = payload.facing;
-          existing.sitting = payload.sitting;
-        }
+      if (!myName || presenceOwner.get(myName) !== socket.id) return;
+      const existing = presence.get(myName);
+      if (existing) {
+        existing.c = payload.c;
+        existing.r = payload.r;
+        existing.facing = payload.facing;
+        existing.sitting = payload.sitting;
       }
       socket.to("pixle-office").emit("pos", payload);
     });
 
     // Low-frequency presence refresh (~1 Hz)
     socket.on("update-presence", (payload: PresencePayload) => {
-      if (myName) presence.set(myName, payload);
+      if (myName && presenceOwner.get(myName) === socket.id) presence.set(myName, payload);
     });
 
     // Broadcast events — relay to room, skip sender
@@ -95,7 +103,10 @@ app.prepare().then(() => {
     // Ghost-user cleanup: fires automatically on TCP drop / tab close / crash
     socket.on("disconnect", () => {
       if (!myName) return;
+      // Another tab/socket has since claimed this name — leave its presence alone
+      if (presenceOwner.get(myName) !== socket.id) return;
       presence.delete(myName);
+      presenceOwner.delete(myName);
       io.to("pixle-office").emit("leave", { key: myName, name: myName });
     });
   });

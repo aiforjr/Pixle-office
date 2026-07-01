@@ -38,8 +38,24 @@ function adjustHex(hex: string, d: number): string {
 // ------------------------------------------------------------------ //
 //  Floors
 // ------------------------------------------------------------------ //
-export function grassTile(ctx: Ctx, x: number, y: number, _c: number, _r: number) {
+export function grassTile(ctx: Ctx, x: number, y: number, c: number, r: number) {
   R(ctx, x, y, 16, 16, "#334a43");
+  // soft mottled patches
+  const v = det(c, r, 5);
+  if (v === 0) R(ctx, x + 2 + det(c, r + 1, 5), y + 2 + det(c + 1, r, 6), 6, 5, "#364e46");
+  else if (v === 1) R(ctx, x + 6 + det(c, r + 2, 4), y + 7 + det(c + 2, r, 4), 6, 5, "#304540");
+  // grass blade tufts (sparse, deterministic so they don't flicker)
+  if (det(c + 3, r + 1, 3) === 0) {
+    const bx = x + 2 + det(c, r + 4, 10);
+    const by = y + 2 + det(c + 5, r, 10);
+    R(ctx, bx, by, 1, 3, "#42604f");
+    R(ctx, bx + 2, by + 1, 1, 2, "#4c6b55");
+    R(ctx, bx + 1, by - 1, 1, 2, "#4c6b55");
+  }
+  // occasional tiny flower / lighter speck
+  if (det(c + 9, r + 7, 23) === 0) R(ctx, x + 4 + det(c, r + 6, 8), y + 4 + det(c + 3, r, 8), 1, 1, "#7fae8c");
+  // dark speck
+  if (det(c + 5, r + 3, 7) === 0) R(ctx, x + 3 + det(c + 4, r, 9), y + 3 + det(c, r + 8, 9), 2, 1, "#2b3e38");
 }
 
 export function woodTile(ctx: Ctx, x: number, y: number, c: number, r: number) {
@@ -264,30 +280,48 @@ export function officeWindow(ctx: Ctx, x: number, y: number, w: number, h: numbe
 //  Office furniture
 // ------------------------------------------------------------------ //
 export function desk(ctx: Ctx, x: number, y: number, w: number, h: number) {
-  const O = "#3a2a18";
-  R(ctx, x + 2, y + h, w - 2, 2, "rgba(0,0,0,0.20)"); // ground shadow
-  R(ctx, x, y, w, h, O); // outline
-  R(ctx, x + 1, y + 1, w - 2, h - 2, "#6f4a28"); // front/edge
-  R(ctx, x + 1, y + 1, w - 2, h - 7, "#9c6a3d"); // top surface
-  R(ctx, x + 1, y + 1, w - 2, 1, "#b88a55"); // top hi-light
-  // wood grain
-  for (let gx = x + 4; gx < x + w - 3; gx += 12) {
-    R(ctx, gx, y + 3, 8, 1, "#8a5b30");
+  const O = "#33230f";
+  R(ctx, x + 2, y + h, w - 3, 2, "rgba(0,0,0,0.20)"); // ground shadow
+  // rounded outline
+  R(ctx, x + 1, y, w - 2, h, O);
+  R(ctx, x, y + 1, w, h - 2, O);
+  const topH = h - 7;
+  // top surface with a lit back edge
+  R(ctx, x + 1, y + 1, w - 2, topH, "#9c6a3d");
+  R(ctx, x + 1, y + 1, w - 2, 1, "#bd8f5a");
+  R(ctx, x + 2, y + 2, w - 4, 1, "#ab7a48");
+  // staggered wood-grain dashes
+  for (let gx = x + 4, i = 0; gx < x + w - 8; gx += 9, i++) {
+    R(ctx, gx + (i % 2) * 3, y + 4 + (i % 3) * 2, 5, 1, "#8a5b30");
+    if (i % 3 === 1) R(ctx, gx + 1, y + 3, 3, 1, "#a87944");
   }
-  R(ctx, x + 1, y + h - 6, w - 2, 1, "#5a3c20"); // lip seam
+  R(ctx, x + 1, y + topH, w - 2, 1, "#5a3c20"); // seam under top
+  // front apron with side shading
+  R(ctx, x + 1, y + topH + 1, w - 2, h - topH - 2, "#6f4a28");
+  R(ctx, x + 1, y + topH + 1, w - 2, 1, "#7d5530");
+  R(ctx, x + 1, y + topH + 1, 2, h - topH - 2, "#7d5530"); // lit left edge
+  R(ctx, x + w - 3, y + topH + 1, 2, h - topH - 2, "#5f3f22"); // shaded right
+  R(ctx, x + 1, y + h - 2, w - 2, 1, "#4a3119"); // base shadow
 }
 
 export function monitor(ctx: Ctx, x: number, y: number, screen: string, accent: string) {
   const O = "#15171c";
-  R(ctx, x + 5, y + 12, 4, 2, "#23262d"); // neck
-  R(ctx, x + 3, y + 14, 8, 2, O); // foot
-  R(ctx, x + 1, y, 14, 12, O); // body outline
+  R(ctx, x + 6, y + 12, 2, 2, "#23262d"); // slim neck
+  R(ctx, x + 7, y + 12, 1, 2, "#383d46");
+  R(ctx, x + 4, y + 14, 6, 1, O); // foot
+  R(ctx, x + 3, y + 15, 8, 1, "#2a2e35"); // foot base
+  // rounded body outline
+  R(ctx, x + 2, y, 12, 12, O);
+  R(ctx, x + 1, y + 1, 14, 10, O);
   R(ctx, x + 2, y + 1, 12, 10, "#2a2e35"); // bezel
   R(ctx, x + 3, y + 2, 10, 8, screen); // screen
+  R(ctx, x + 3, y + 2, 10, 1, adjustHex(screen, 22)); // top glow
   R(ctx, x + 4, y + 3, 8, 2, accent); // header bar
-  R(ctx, x + 4, y + 6, 6, 1, "rgba(255,255,255,0.55)");
+  R(ctx, x + 4, y + 6, 6, 1, "rgba(255,255,255,0.55)"); // text lines
   R(ctx, x + 4, y + 8, 7, 1, "rgba(255,255,255,0.30)");
-  R(ctx, x + 3, y + 2, 3, 3, "rgba(255,255,255,0.16)"); // glare
+  R(ctx, x + 3, y + 2, 2, 4, "rgba(255,255,255,0.16)"); // glare
+  R(ctx, x + 12, y + 3, 1, 6, "rgba(0,0,0,0.18)"); // right screen shade
+  R(ctx, x + 7, y + 11, 2, 1, "#454c58"); // logo on chin
 }
 
 export function keyboard(ctx: Ctx, x: number, y: number) {
@@ -332,30 +366,50 @@ export function tower(ctx: Ctx, x: number, y: number) {
 
 export function chair(ctx: Ctx, x: number, y: number) {
   // top-down swivel chair (~14 x 17)
-  const O = "#16181c";
-  R(ctx, x + 5, y + 13, 4, 4, "#202329"); // gas post
-  R(ctx, x + 2, y + 14, 3, 2, "#2a2e35"); // wheels
-  R(ctx, x + 9, y + 14, 3, 2, "#2a2e35");
-  R(ctx, x + 3, y, 8, 5, O); // backrest
+  const O = "#14161b";
+  R(ctx, x + 6, y + 13, 2, 3, "#23262d"); // gas post
+  R(ctx, x + 3, y + 15, 8, 1, "#2a2e35"); // cross base
+  R(ctx, x + 2, y + 15, 2, 2, "#1c1f24"); // casters
+  R(ctx, x + 10, y + 15, 2, 2, "#1c1f24");
+  R(ctx, x + 6, y + 16, 2, 1, "#1c1f24");
+  // backrest — rounded
+  R(ctx, x + 4, y, 6, 1, O);
+  R(ctx, x + 3, y + 1, 8, 4, O);
   R(ctx, x + 4, y + 1, 6, 3, "#3a4049");
-  R(ctx, x + 1, y + 5, 12, 9, O); // seat block
-  R(ctx, x + 2, y + 6, 10, 7, "#3a4049"); // seat
-  R(ctx, x + 3, y + 7, 8, 4, "#49505b"); // cushion hi
-  R(ctx, x, y + 6, 2, 6, "#2a2e35"); // arm L
-  R(ctx, x + 12, y + 6, 2, 6, "#2a2e35"); // arm R
+  R(ctx, x + 4, y + 1, 6, 1, "#4a515c");
+  // seat — rounded
+  R(ctx, x + 2, y + 5, 10, 1, O);
+  R(ctx, x + 1, y + 6, 12, 8, O);
+  R(ctx, x + 2, y + 6, 10, 7, "#3a4049");
+  R(ctx, x + 3, y + 7, 8, 5, "#49505b"); // cushion
+  R(ctx, x + 3, y + 7, 8, 2, "#565e6a"); // cushion hi
+  R(ctx, x + 3, y + 10, 8, 1, "#3f4650"); // stitch line
+  // arms with lit top edge
+  R(ctx, x, y + 6, 2, 6, "#2a2e35");
+  R(ctx, x + 12, y + 6, 2, 6, "#2a2e35");
+  R(ctx, x, y + 6, 2, 1, "#3a3f47");
+  R(ctx, x + 12, y + 6, 2, 1, "#3a3f47");
 }
 
 export function deskChair(ctx: Ctx, x: number, y: number, seat: string, seatHi: string) {
   // chair seen from behind/above with a coloured seat (for seated NPCs)
-  const O = "#16181c";
-  R(ctx, x + 5, y + 13, 4, 4, "#202329");
-  R(ctx, x + 2, y + 14, 3, 2, "#2a2e35");
-  R(ctx, x + 9, y + 14, 3, 2, "#2a2e35");
-  R(ctx, x + 1, y + 4, 12, 11, O);
+  const O = "#14161b";
+  R(ctx, x + 6, y + 14, 2, 3, "#23262d"); // gas post
+  R(ctx, x + 3, y + 16, 8, 1, "#2a2e35"); // cross base
+  R(ctx, x + 2, y + 15, 2, 2, "#1c1f24"); // casters
+  R(ctx, x + 10, y + 15, 2, 2, "#1c1f24");
+  // seat back — rounded
+  R(ctx, x + 2, y + 4, 10, 1, O);
+  R(ctx, x + 1, y + 5, 12, 10, O);
   R(ctx, x + 2, y + 5, 10, 9, seat);
   R(ctx, x + 3, y + 6, 8, 5, seatHi);
+  R(ctx, x + 3, y + 6, 8, 2, adjustHex(seatHi, 16));
+  R(ctx, x + 2, y + 12, 10, 2, adjustHex(seat, -16)); // lumbar shade
+  // arms with lit tops
   R(ctx, x, y + 5, 2, 7, "#2a2e35");
   R(ctx, x + 12, y + 5, 2, 7, "#2a2e35");
+  R(ctx, x, y + 5, 2, 1, "#3a3f47");
+  R(ctx, x + 12, y + 5, 2, 1, "#3a3f47");
 }
 
 export function plant(ctx: Ctx, x: number, y: number) {
@@ -475,8 +529,13 @@ export function bookshelf(ctx: Ctx, x: number, y: number, w: number, h: number) 
     while (bx < x + w - 3) {
       const bw = 3 + det(bx, sy, 3);
       const bh = 8 - det(bx + 1, sy, 2);
-      R(ctx, bx, sy + (9 - bh), bw, bh, spineColors[i % spineColors.length]);
-      R(ctx, bx, sy + (9 - bh), bw, 1, "rgba(255,255,255,0.25)");
+      const col = spineColors[i % spineColors.length];
+      R(ctx, bx, sy + (9 - bh), bw, bh, col);
+      R(ctx, bx, sy + (9 - bh), bw, 1, "rgba(255,255,255,0.25)"); // top sheen
+      R(ctx, bx, sy + (9 - bh), 1, bh, adjustHex(col, 24));       // lit spine edge
+      R(ctx, bx + bw - 1, sy + (9 - bh), 1, bh, adjustHex(col, -24)); // shaded edge
+      if (bh > 5 && det(bx, sy + 3, 3) === 0)
+        R(ctx, bx + 1, sy + (9 - bh) + 2, bw - 2, 1, "rgba(255,255,255,0.35)"); // title band
       bx += bw + 1;
       i++;
     }
@@ -508,14 +567,24 @@ export function floorLamp(ctx: Ctx, x: number, y: number) {
 }
 
 export function whiteboard(ctx: Ctx, x: number, y: number, w: number, h: number) {
-  R(ctx, x, y, w, h, "#aeb3ba"); // frame
+  // rounded frame
+  R(ctx, x + 1, y, w - 2, h, "#aeb3ba");
+  R(ctx, x, y + 1, w, h - 2, "#aeb3ba");
+  R(ctx, x + 1, y + 1, w - 2, 1, "#c8cdd3"); // lit top edge
   R(ctx, x + 2, y + 2, w - 4, h - 5, "#f7f8fa"); // surface
-  R(ctx, x + (w >> 1) - 6, y + h - 3, 12, 2, "#8a909a"); // tray
-  // notes
+  R(ctx, x + 2, y + 2, w - 4, 1, "#e2e5e9"); // inner top shadow
+  R(ctx, x + (w >> 1) - 7, y + h - 3, 14, 2, "#8a909a"); // tray
+  R(ctx, x + (w >> 1) - 5, y + h - 4, 3, 1, "#d04a3a"); // markers in tray
+  R(ctx, x + (w >> 1),     y + h - 4, 3, 1, "#3f7fc0");
+  // scribbled notes
   R(ctx, x + 5, y + 6, w - 26, 1, "#5a6470");
   R(ctx, x + 5, y + 9, w - 30, 1, "#5a6470");
-  R(ctx, x + 5, y + 12, w - 22, 1, "#5a6470");
-  R(ctx, x + 5, y + 16, 8, 6, "#7fcdd8"); // chart box
+  R(ctx, x + 5, y + 12, w - 22, 1, "#8a93a0");
+  // sticky notes
+  R(ctx, x + 5, y + 15, 5, 5, "#f2d24b");
+  R(ctx, x + 5, y + 15, 5, 1, "#f8e27c");
+  R(ctx, x + 12, y + 16, 5, 5, "#7fd8a0");
+  R(ctx, x + 12, y + 16, 5, 1, "#a4e8bc");
   // red trend arrow
   R(ctx, x + w - 22, y + h - 8, 16, 2, "#d04a3a");
   R(ctx, x + w - 9, y + 6, 2, 12, "#d04a3a");
@@ -553,60 +622,108 @@ export function openBook(ctx: Ctx, x: number, y: number) {
 
 export function tv(ctx: Ctx, x: number, y: number) {
   R(ctx, x + 4, y + 14, 12, 3, "#202329"); // console
+  R(ctx, x + 5, y + 14, 10, 1, "#3a3f47");
   R(ctx, x + 6, y + 13, 8, 2, "#33373f");
-  R(ctx, x, y, 20, 14, "#15171c"); // bezel
-  R(ctx, x + 2, y + 2, 16, 10, "#2bd1c4"); // screen
-  R(ctx, x + 3, y + 3, 9, 3, "rgba(255,255,255,0.45)");
-  R(ctx, x + 3, y + 7, 6, 2, "rgba(255,255,255,0.22)");
+  // rounded bezel
+  R(ctx, x + 1, y, 18, 14, "#15171c");
+  R(ctx, x, y + 1, 20, 12, "#15171c");
+  // screen: dashboard-style content
+  R(ctx, x + 2, y + 2, 16, 10, "#123c46");
+  R(ctx, x + 3, y + 3, 7, 4, "#2bd1c4");    // chart panel
+  R(ctx, x + 4, y + 4, 2, 2, "#0f5560");
+  R(ctx, x + 11, y + 3, 5, 1, "#7fe8df");   // text lines
+  R(ctx, x + 11, y + 5, 6, 1, "#3f8a96");
+  R(ctx, x + 11, y + 7, 4, 1, "#3f8a96");
+  R(ctx, x + 3, y + 9, 12, 1, "#2a6a76");
+  R(ctx, x + 3, y + 3, 3, 2, "rgba(255,255,255,0.30)"); // glare
+  R(ctx, x + 17, y + 11, 1, 1, "#e05a4a");  // power LED
 }
 
 export function roundTable(ctx: Ctx, cx: number, cy: number, rad: number) {
   for (let yy = -rad; yy <= rad; yy++) {
     const sp = Math.floor(Math.sqrt(rad * rad - yy * yy));
-    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#4f555f"); // rim/outline
+    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#3e444e"); // outline
   }
-  for (let yy = -rad + 2; yy <= rad - 2; yy++) {
-    const sp = Math.floor(Math.sqrt((rad - 2) * (rad - 2) - yy * yy));
-    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#8a9099"); // surface
+  for (let yy = -rad + 1; yy <= rad - 1; yy++) {
+    const r2 = rad - 1;
+    const sp = Math.floor(Math.sqrt(r2 * r2 - yy * yy));
+    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#6a707a"); // visible side edge
   }
-  R(ctx, cx - rad + 4, cy - rad + 5, rad - 2, Math.floor(rad / 2), "rgba(255,255,255,0.16)");
+  for (let yy = -(rad - 2); yy <= rad - 2; yy++) {
+    const r2 = rad - 2;
+    const sp = Math.floor(Math.sqrt(r2 * r2 - yy * yy));
+    R(ctx, cx - sp, cy + yy - 1, sp * 2, 1, "#8a9099"); // raised top surface
+  }
+  for (let yy = -(rad - 4); yy <= 0; yy++) {
+    const r2 = rad - 4;
+    const sp = Math.floor(Math.sqrt(r2 * r2 - yy * yy));
+    R(ctx, cx - sp, cy + yy - 1, sp * 2, 1, "#959ba4"); // lit upper half
+  }
+  // soft crescent sheen top-left
+  for (let yy = -(rad - 4); yy <= -(rad >> 1); yy++) {
+    const r2 = rad - 4;
+    const sp = Math.floor(Math.sqrt(r2 * r2 - yy * yy));
+    R(ctx, cx - sp + 1, cy + yy - 1, Math.max(1, sp >> 1), 1, "#a4aab2");
+  }
 }
 
 // white oval coffee/meeting table
 export function ovalTable(ctx: Ctx, cx: number, cy: number, rx: number, ry: number) {
+  const span = (rrx: number, rry: number, yy: number) =>
+    Math.floor(rrx * Math.sqrt(Math.max(0, 1 - (yy * yy) / (rry * rry))));
   for (let yy = -ry; yy <= ry; yy++) {
-    const sp = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (yy * yy) / (ry * ry))));
-    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#c4c9d0"); // rim
+    const sp = span(rx, ry, yy);
+    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#9aa0a8"); // outline
+  }
+  for (let yy = -ry + 1; yy <= ry - 1; yy++) {
+    const sp = span(rx - 1, ry - 1, yy);
+    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#c9ced4"); // visible side edge
   }
   for (let yy = -ry + 2; yy <= ry - 2; yy++) {
-    const rry = ry - 2;
-    const rrx = rx - 3;
-    const sp = Math.floor(rrx * Math.sqrt(Math.max(0, 1 - (yy * yy) / (rry * rry))));
-    R(ctx, cx - sp, cy + yy, sp * 2, 1, "#eef1f4"); // top
+    const sp = span(rx - 2, ry - 2, yy);
+    R(ctx, cx - sp, cy + yy - 1, sp * 2, 1, "#eef1f4"); // raised top
   }
-  R(ctx, cx - rx + 6, cy - ry + 4, rx, Math.floor(ry / 2), "rgba(255,255,255,0.4)");
+  for (let yy = 0; yy <= ry - 3; yy++) {
+    const sp = span(rx - 4, ry - 4, yy);
+    R(ctx, cx - sp, cy + yy - 1, sp * 2, 1, "#e4e8ec"); // lower-half shade
+  }
+  // sheen crescent, upper-left
+  for (let yy = -(ry - 3); yy < 0; yy++) {
+    const sp = span(rx - 4, ry - 4, yy);
+    R(ctx, cx - sp + 1, cy + yy - 1, Math.max(2, sp >> 1), 1, "#f8fafb");
+  }
 }
 
 // blue 3-seat sofa (top-down, backrest at the top)
 export function sofa(ctx: Ctx, x: number, y: number, w: number) {
-  const O = "#20406a";
+  const O = "#1c3a60";
   const base = "#3f6fb0";
   const cush = "#4f7fc0";
+  const cushSh = "#3a66a4";
   const hi = "#6f9bd8";
-  R(ctx, x + 2, y + 22, w - 2, 2, "rgba(0,0,0,0.18)"); // shadow
-  R(ctx, x, y, w, 9, O); // backrest
+  const hi2 = "#84abe0";
+  R(ctx, x + 2, y + 22, w - 3, 2, "rgba(0,0,0,0.18)"); // shadow
+  // backrest — rounded top corners
+  R(ctx, x + 1, y, w - 2, 1, O);
+  R(ctx, x, y + 1, w, 8, O);
   R(ctx, x + 1, y + 1, w - 2, 7, base);
-  R(ctx, x + 1, y + 1, w - 2, 2, hi);
+  R(ctx, x + 2, y + 1, w - 4, 2, hi);
+  R(ctx, x + 1, y + 6, w - 2, 2, cushSh); // shade where cushions meet
   R(ctx, x, y + 7, w, 15, O); // seat block
   R(ctx, x + 4, y + 9, w - 8, 11, cush); // seat cushions
+  R(ctx, x + 4, y + 9, w - 8, 2, hi);
+  R(ctx, x + 5, y + 9, Math.max(2, (w - 12) >> 1), 1, hi2);
+  R(ctx, x + 4, y + 18, w - 8, 2, cushSh); // front-edge shade
   // cushion divisions
   for (let cxn = x + 4 + Math.floor((w - 8) / 3); cxn < x + w - 5; cxn += Math.floor((w - 8) / 3))
     R(ctx, cxn, y + 9, 1, 11, O);
-  R(ctx, x + 4, y + 9, w - 8, 2, hi);
-  R(ctx, x, y + 5, 5, 17, base); // arm L
-  R(ctx, x + w - 5, y + 5, 5, 17, base); // arm R
-  R(ctx, x + 1, y + 6, 3, 2, hi);
-  R(ctx, x + w - 4, y + 6, 3, 2, hi);
+  // arms — rounded with lit tops
+  R(ctx, x, y + 5, 5, 17, O);
+  R(ctx, x + 1, y + 5, 3, 16, base);
+  R(ctx, x + 1, y + 5, 3, 2, hi);
+  R(ctx, x + w - 5, y + 5, 5, 17, O);
+  R(ctx, x + w - 4, y + 5, 3, 16, base);
+  R(ctx, x + w - 4, y + 5, 3, 2, hi);
 }
 
 // white display cabinet with glass shelves, colour items, plant on top
@@ -715,28 +832,53 @@ export function whiteCabinet(ctx: Ctx, x: number, y: number, w: number, h: numbe
 
 // small green locker / door cabinet
 export function locker(ctx: Ctx, x: number, y: number) {
-  R(ctx, x, y, 16, 26, "#1f3a2a");
-  R(ctx, x + 1, y + 1, 14, 24, "#3f8a5c"); // door
-  R(ctx, x + 1, y + 1, 14, 2, "#56a974");
-  R(ctx, x + 7, y + 1, 1, 24, "#2c6644"); // seam
-  R(ctx, x + 4, y + 12, 2, 4, "#dfe6d8"); // handle
+  R(ctx, x + 2, y + 26, 12, 1, "rgba(0,0,0,0.20)"); // ground shadow
+  // rounded outline
+  R(ctx, x + 1, y, 14, 26, "#1f3a2a");
+  R(ctx, x, y + 1, 16, 24, "#1f3a2a");
+  R(ctx, x + 1, y + 1, 14, 24, "#3f8a5c"); // doors
+  R(ctx, x + 1, y + 1, 14, 2, "#56a974");  // lit top
+  R(ctx, x + 1, y + 1, 1, 23, "#4c9a68");  // lit left edge
+  R(ctx, x + 14, y + 2, 1, 22, "#2f7048"); // shaded right edge
+  R(ctx, x + 7, y + 1, 1, 24, "#2c6644");  // centre seam
+  // vent slits
+  for (const vy of [5, 7, 9]) {
+    R(ctx, x + 3, y + vy, 3, 1, "#2c6644");
+    R(ctx, x + 10, y + vy, 3, 1, "#2c6644");
+  }
+  // handles with shadow
+  R(ctx, x + 4, y + 12, 2, 4, "#dfe6d8");
   R(ctx, x + 10, y + 12, 2, 4, "#dfe6d8");
+  R(ctx, x + 4, y + 15, 2, 1, "#9fae96");
+  R(ctx, x + 10, y + 15, 2, 1, "#9fae96");
+  R(ctx, x + 1, y + 23, 14, 2, "#2f6a46"); // kick shadow
 }
 
 // blue gaming chair (top-down, tall back + headrest)
 export function gamingChair(ctx: Ctx, x: number, y: number) {
   const O = "#13161c";
-  R(ctx, x + 5, y + 16, 4, 4, "#202329"); // post
-  R(ctx, x + 2, y + 17, 3, 2, "#2a2e35");
-  R(ctx, x + 9, y + 17, 3, 2, "#2a2e35");
-  R(ctx, x + 3, y, 8, 7, O); // headrest+back
+  R(ctx, x + 6, y + 16, 2, 3, "#23262d"); // post
+  R(ctx, x + 3, y + 18, 8, 1, "#2a2e35"); // cross base
+  R(ctx, x + 2, y + 18, 2, 2, "#1c1f24"); // casters
+  R(ctx, x + 10, y + 18, 2, 2, "#1c1f24");
+  // headrest + back — rounded
+  R(ctx, x + 4, y, 6, 1, O);
+  R(ctx, x + 3, y + 1, 8, 6, O);
   R(ctx, x + 4, y + 1, 6, 5, "#3f6fb0");
   R(ctx, x + 4, y + 1, 6, 2, "#5b8ed0"); // stripe
-  R(ctx, x + 1, y + 6, 12, 10, O); // seat
+  R(ctx, x + 5, y + 4, 4, 1, "#2c5590"); // wing seam
+  // seat — rounded
+  R(ctx, x + 2, y + 6, 10, 1, O);
+  R(ctx, x + 1, y + 7, 12, 9, O);
   R(ctx, x + 2, y + 7, 10, 8, "#2a2e35");
   R(ctx, x + 3, y + 8, 8, 5, "#3f6fb0");
-  R(ctx, x, y + 7, 2, 7, "#3f6fb0"); // arms
+  R(ctx, x + 3, y + 8, 8, 2, "#5b8ed0");
+  R(ctx, x + 6, y + 8, 2, 5, "#2c5590"); // centre channel
+  // arms with lit tops
+  R(ctx, x, y + 7, 2, 7, "#3f6fb0");
   R(ctx, x + 12, y + 7, 2, 7, "#3f6fb0");
+  R(ctx, x, y + 7, 2, 1, "#5b8ed0");
+  R(ctx, x + 12, y + 7, 2, 1, "#5b8ed0");
 }
 
 export function tubChair(
@@ -747,16 +889,23 @@ export function tubChair(
 ) {
   const O = "#1d6b66";
   const base = "#3fb6b0";
+  const baseSh = "#35a09a";
   const hi = "#5fcfc8";
-  R(ctx, x, y, 16, 16, O); // outline body
+  R(ctx, x + 2, y + 16, 12, 1, "rgba(0,0,0,0.16)"); // ground shadow
+  // rounded outline body
+  R(ctx, x + 1, y, 14, 16, O);
+  R(ctx, x, y + 1, 16, 14, O);
   R(ctx, x + 1, y + 1, 14, 14, base);
-  R(ctx, x + 3, y + 3, 10, 10, hi); // cushion
-  R(ctx, x + 4, y + 4, 8, 4, "#74dad3"); // cushion hi
+  R(ctx, x + 1, y + 1, 14, 2, hi);          // lit rim
+  R(ctx, x + 1, y + 13, 14, 2, baseSh);     // shaded rim
+  R(ctx, x + 3, y + 3, 10, 10, hi);         // cushion
+  R(ctx, x + 4, y + 4, 8, 4, "#74dad3");    // cushion hi
+  R(ctx, x + 3, y + 11, 10, 2, "#4dc2bb");  // cushion shade
   // thick backrest on the far side
-  if (facing === "down") R(ctx, x, y, 16, 5, O), R(ctx, x + 1, y + 1, 14, 3, base);
-  if (facing === "up") R(ctx, x, y + 11, 16, 5, O), R(ctx, x + 1, y + 12, 14, 3, base);
-  if (facing === "left") R(ctx, x, y, 5, 16, O), R(ctx, x + 1, y + 1, 3, 14, base);
-  if (facing === "right") R(ctx, x + 11, y, 5, 16, O), R(ctx, x + 12, y + 1, 3, 14, base);
+  if (facing === "down") R(ctx, x, y, 16, 5, O), R(ctx, x + 1, y + 1, 14, 3, base), R(ctx, x + 2, y + 1, 12, 1, hi);
+  if (facing === "up") R(ctx, x, y + 11, 16, 5, O), R(ctx, x + 1, y + 12, 14, 3, base), R(ctx, x + 2, y + 12, 12, 1, hi);
+  if (facing === "left") R(ctx, x, y, 5, 16, O), R(ctx, x + 1, y + 1, 3, 14, base), R(ctx, x + 1, y + 1, 1, 14, hi);
+  if (facing === "right") R(ctx, x + 11, y, 5, 16, O), R(ctx, x + 12, y + 1, 3, 14, base), R(ctx, x + 14, y + 1, 1, 14, baseSh);
 }
 
 export function loungeChair(
@@ -769,12 +918,16 @@ export function loungeChair(
   const O = "#2c5a86";
   const base = "#5b9bd5";
   const hi = "#7fb4e0";
-  R(ctx, x, y, 16, 16, O);
+  R(ctx, x + 2, y + 16, 12, 1, "rgba(0,0,0,0.16)");
+  R(ctx, x + 1, y, 14, 16, O);
+  R(ctx, x, y + 1, 16, 14, O);
   R(ctx, x + 1, y + 1, 14, 14, base);
+  R(ctx, x + 1, y + 1, 14, 2, hi);
   R(ctx, x + 3, y + 3, 10, 10, hi);
   R(ctx, x + 4, y + 4, 8, 4, "#9cc6ea");
-  if (facing === "left") R(ctx, x, y, 5, 16, O), R(ctx, x + 1, y + 1, 3, 14, base);
-  else R(ctx, x + 11, y, 5, 16, O), R(ctx, x + 12, y + 1, 3, 14, base);
+  R(ctx, x + 3, y + 11, 10, 2, "#6ea6da");
+  if (facing === "left") R(ctx, x, y, 5, 16, O), R(ctx, x + 1, y + 1, 3, 14, base), R(ctx, x + 1, y + 1, 1, 14, hi);
+  else R(ctx, x + 11, y, 5, 16, O), R(ctx, x + 12, y + 1, 3, 14, base), R(ctx, x + 14, y + 1, 1, 14, "#4c8ac4");
 }
 
 export function tree(ctx: Ctx, x: number, y: number, size: number) {
@@ -1037,7 +1190,15 @@ function fillCircle(ctx: Ctx, cx: number, cy: number, rad: number, col: string) 
 // ------------------------------------------------------------------ //
 //  Characters
 // ------------------------------------------------------------------ //
-export type Skin = { hair: string; hairHi: string; shirt: string; shirtHi: string; skin: string };
+export type Skin = {
+  hair: string;
+  hairHi: string;
+  shirt: string;
+  shirtHi: string;
+  skin: string;
+  pants?: string;
+  shoes?: string;
+};
 
 export function person(
   ctx: Ctx,
@@ -1047,7 +1208,14 @@ export function person(
   facing: "down" | "up" | "left" | "right",
   step: number // 0=idle, 1=left-contact, 2=mid-swing, 3=right-contact
 ) {
-  const O = "#161114";
+  const O = "#171219";
+  const eye = "#232833";
+  const pants = s.pants ?? "#2b303b";
+  const pantsSh = adjustHex(pants, -12);
+  const shoes = s.shoes ?? "#1c1f26";
+  const shoeHi = adjustHex(shoes, 26);
+  const skinSh = adjustHex(s.skin, -26);
+  const shirtSh = adjustHex(s.shirt, -32);
   const leftLead  = step === 1;
   const rightLead = step === 3;
   // body rises 1px on mid-swing (airborne phase)
@@ -1060,116 +1228,146 @@ export function person(
   const y = -20 + bob;
 
   // shadow (stays at foot level; compensate so it doesn't bob)
-  R(ctx, x + 1, y + 19 - bob, 10, 2, "rgba(0,0,0,0.22)");
+  R(ctx, x + 2, y + 19 - bob, 8, 2, "rgba(0,0,0,0.22)");
+  R(ctx, x + 1, y + 19 - bob, 10, 1, "rgba(0,0,0,0.10)");
 
   // legs
   if (facing === "left" || facing === "right") {
     // side view — front leg and back leg with depth separation
-    // front leg is lighter, back leg is darker to simulate depth
     const frontLead = facing === "right" ? leftLead : rightLead;
     const backLead  = facing === "right" ? rightLead : leftLead;
     // back leg (darker, drawn first so front leg overlaps)
     const backH  = backLead  ? 6 : frontLead ? 3 : 4;
     const backOY = backLead  ? 0 : frontLead ? 1 : 0; // raised when trailing
-    R(ctx, x + 5, y + 15 + backOY, 3, backH, "#1e2229");
+    R(ctx, x + 5, y + 15 + backOY, 3, backH, pantsSh);
     // shoe for back leg — extends slightly backward
-    if (facing === "right") R(ctx, x + 3, y + 14 + backOY + backH, 4, 1, "#1e2229");
-    else                    R(ctx, x + 5, y + 14 + backOY + backH, 4, 1, "#1e2229");
+    if (facing === "right") R(ctx, x + 3, y + 14 + backOY + backH, 4, 1, shoes);
+    else                    R(ctx, x + 5, y + 14 + backOY + backH, 4, 1, shoes);
     // front leg (lighter)
     const frontH  = frontLead ? 6 : backLead ? 3 : 4;
     const frontOY = frontLead ? 0 : backLead ? 1 : 0;
-    R(ctx, x + 3, y + 15 + frontOY, 3, frontH, "#2b2f37");
+    R(ctx, x + 3, y + 15 + frontOY, 3, frontH, pants);
     // shoe for front leg — extends in direction of travel
-    if (facing === "right") R(ctx, x + 4, y + 14 + frontOY + frontH, 4, 1, O);
-    else                    R(ctx, x + 2, y + 14 + frontOY + frontH, 4, 1, O);
-  } else if (facing === "down") {
-    // front view: legs spread + heel-lift on trailing foot
-    const lLead = leftLead;
-    const rLead = rightLead;
-    const lx = lLead ? 1 : rLead ? 3 : 2;
-    const rx = rLead ? 8 : lLead ? 6 : 7;
-    // trailing leg is shorter (heel lifted)
-    const lH = lLead ? 5 : rLead ? 3 : 4;
-    const rH = rLead ? 5 : lLead ? 3 : 4;
-    R(ctx, x + lx, y + 15, 3, lH, "#2b2f37");
-    R(ctx, x + rx, y + 15, 3, rH, "#2b2f37");
-    // shoes — wider on planted foot
-    R(ctx, x + lx - (lLead ? 1 : 0), y + 14 + lH, lLead ? 4 : 3, 1, O);
-    R(ctx, x + rx - (rLead ? 0 : 0), y + 14 + rH, rLead ? 4 : 3, 1, O);
+    if (facing === "right") {
+      R(ctx, x + 4, y + 14 + frontOY + frontH, 4, 1, shoes);
+      R(ctx, x + 6, y + 14 + frontOY + frontH, 2, 1, shoeHi);
+    } else {
+      R(ctx, x + 2, y + 14 + frontOY + frontH, 4, 1, shoes);
+      R(ctx, x + 2, y + 14 + frontOY + frontH, 2, 1, shoeHi);
+    }
   } else {
-    // back view (facing up): same leg spread, but shoes point outward/back
+    // front/back view: legs spread + heel-lift on trailing foot
     const lLead = leftLead;
     const rLead = rightLead;
     const lx = lLead ? 1 : rLead ? 3 : 2;
     const rx = rLead ? 8 : lLead ? 6 : 7;
     const lH = lLead ? 5 : rLead ? 3 : 4;
     const rH = rLead ? 5 : lLead ? 3 : 4;
-    R(ctx, x + lx, y + 15, 3, lH, "#2b2f37");
-    R(ctx, x + rx, y + 15, 3, rH, "#2b2f37");
-    R(ctx, x + lx - 1, y + 14 + lH, 4, 1, O);
-    R(ctx, x + rx,     y + 14 + rH, 4, 1, O);
+    R(ctx, x + lx, y + 15, 3, lH, pants);
+    R(ctx, x + rx, y + 15, 3, rH, pants);
+    R(ctx, x + lx + 2, y + 15, 1, lH, pantsSh); // inner-leg shade
+    R(ctx, x + rx + 2, y + 15, 1, rH, pantsSh);
+    // shoes — wider on planted foot, with a lit toe cap
+    const lsx = x + lx - (lLead ? 1 : 0);
+    const rsx = x + rx;
+    R(ctx, lsx, y + 14 + lH, lLead ? 4 : 3, 1, shoes);
+    R(ctx, rsx, y + 14 + rH, rLead ? 4 : 3, 1, shoes);
+    if (facing === "down") {
+      R(ctx, lsx, y + 14 + lH, 1, 1, shoeHi);
+      R(ctx, rsx, y + 14 + rH, 1, 1, shoeHi);
+    }
   }
 
-  // torso / shirt
-  R(ctx, x + 1, y + 8, 10, 8, O);
-  R(ctx, x + 2, y + 9, 8, 6, s.shirt);
-  R(ctx, x + 3, y + 9, 6, 2, s.shirtHi);
+  // torso / shirt — rounded outline
+  R(ctx, x + 2, y + 8, 8, 1, O);
+  R(ctx, x + 1, y + 9, 10, 7, O);
+  R(ctx, x + 2, y + 9, 8, 5, s.shirt);
+  R(ctx, x + 2, y + 9, 1, 4, s.shirtHi);   // lit left side
+  R(ctx, x + 3, y + 9, 4, 1, s.shirtHi);   // lit shoulder line
+  R(ctx, x + 9, y + 9, 1, 5, shirtSh);     // shaded right side
+  R(ctx, x + 2, y + 13, 8, 1, shirtSh);    // hem shadow
+  R(ctx, x + 2, y + 14, 8, 1, pantsSh);    // belt line
 
   // arms — swing opposite to lead leg
   if (facing === "left" || facing === "right") {
     // side view: one arm forward, one arm behind torso
-    // forward arm swings with opposite phase to front leg
     const frontArmSwing = facing === "right" ? rightLead : leftLead;
     const backArmSwing  = facing === "right" ? leftLead  : rightLead;
     const fArmBot = frontArmSwing ? 14 : backArmSwing ? 11 : 13;
     const bArmBot = backArmSwing  ? 14 : frontArmSwing ? 11 : 13;
     // back arm (darker, drawn behind torso edge)
     const bax = facing === "right" ? x + 9 : x + 1;
-    R(ctx, bax, y + 9, 2, bArmBot - 9, "#4a3f6a"); // darker shirt
-    R(ctx, bax, y + bArmBot, 2, 2, "#c89060");     // hand in shadow
+    R(ctx, bax, y + 9, 2, bArmBot - 9, shirtSh);
+    R(ctx, bax, y + bArmBot, 2, 2, skinSh);   // hand in shadow
     // front arm
     const fax = facing === "right" ? x : x + 8;
     R(ctx, fax, y + 9, 2, fArmBot - 9, s.shirt);
+    R(ctx, fax, y + 9, 1, 1, s.shirtHi);      // shoulder pixel
     R(ctx, fax, y + fArmBot, 2, 2, s.skin);
   } else {
     // front/back view: both arms visible, swing normally
     const armLBot = rightLead ? 14 : leftLead ? 12 : 13;
     const armRBot = leftLead  ? 14 : rightLead ? 12 : 13;
     R(ctx, x,      y + 9, 2, armLBot - 9, s.shirt);
-    R(ctx, x + 10, y + 9, 2, armRBot - 9, s.shirt);
+    R(ctx, x + 10, y + 9, 2, armRBot - 9, shirtSh);
+    R(ctx, x,      y + 9, 1, 1, s.shirtHi);
     R(ctx, x,      y + armLBot, 2, 2, s.skin);
-    R(ctx, x + 10, y + armRBot, 2, 2, s.skin);
+    R(ctx, x + 10, y + armRBot, 2, 2, skinSh);
   }
 
-  // head
-  R(ctx, x + 2, y, 8, 9, O);
+  // head — rounded outline (corners skipped)
+  R(ctx, x + 3, y, 6, 1, O);
+  R(ctx, x + 2, y + 1, 8, 7, O);
+  R(ctx, x + 3, y + 8, 6, 1, O);
   if (facing === "up") {
+    // back of head: full hair with a shine arc
     R(ctx, x + 3, y + 1, 6, 7, s.hair);
-    R(ctx, x + 3, y + 1, 6, 2, s.hairHi);
+    R(ctx, x + 3, y + 1, 6, 1, s.hairHi);
+    R(ctx, x + 3, y + 2, 2, 1, s.hairHi);
+    R(ctx, x + 3, y + 7, 6, 1, adjustHex(s.hair, -14)); // nape shadow
+    R(ctx, x + 5, y + 8, 2, 1, skinSh);                 // neck
+  } else if (facing === "down") {
+    // hair cap + fringe
+    R(ctx, x + 3, y + 1, 6, 2, s.hair);
+    R(ctx, x + 4, y + 1, 3, 1, s.hairHi);   // shine
+    R(ctx, x + 3, y + 3, 1, 3, s.hair);     // sideburns
+    R(ctx, x + 8, y + 3, 1, 3, s.hair);
+    // face
+    R(ctx, x + 4, y + 3, 4, 4, s.skin);
+    R(ctx, x + 3, y + 6, 6, 1, s.skin);
+    R(ctx, x + 4, y + 4, 1, 2, eye);        // eyes
+    R(ctx, x + 7, y + 4, 1, 2, eye);
+    R(ctx, x + 5, y + 6, 2, 1, skinSh);     // mouth
+    R(ctx, x + 4, y + 7, 4, 1, adjustHex(s.skin, -13)); // soft chin shade
+  } else if (facing === "left") {
+    // hair cap + back-of-head mass on the right
+    R(ctx, x + 3, y + 1, 6, 2, s.hair);
+    R(ctx, x + 4, y + 1, 3, 1, s.hairHi);
+    R(ctx, x + 7, y + 3, 2, 5, s.hair);
+    R(ctx, x + 8, y + 3, 1, 5, adjustHex(s.hair, -14));
+    // profile face
+    R(ctx, x + 3, y + 3, 4, 4, s.skin);
+    R(ctx, x + 4, y + 4, 1, 2, eye);        // eye
+    R(ctx, x + 3, y + 6, 1, 1, skinSh);     // mouth hint
+    R(ctx, x + 3, y + 7, 4, 1, adjustHex(s.skin, -13)); // soft chin shade
+    R(ctx, x + 7, y + 5, 1, 1, skinSh);     // ear
   } else {
-    R(ctx, x + 3, y + 3, 6, 5, s.skin);
-    R(ctx, x + 3, y + 6, 6, 1, "#d39a72");
-    R(ctx, x + 3, y, 6, 4, s.hair);
-    R(ctx, x + 3, y, 6, 1, s.hairHi);
-    if (facing === "down") {
-      R(ctx, x + 2, y + 2, 1, 5, s.hair);
-      R(ctx, x + 9, y + 2, 1, 5, s.hair);
-      R(ctx, x + 4, y + 5, 1, 1, O);
-      R(ctx, x + 7, y + 5, 1, 1, O);
-    } else if (facing === "left") {
-      R(ctx, x + 2, y + 1, 2, 7, s.hair);
-      R(ctx, x + 4, y + 5, 1, 1, O);
-    } else {
-      R(ctx, x + 8, y + 1, 2, 7, s.hair);
-      R(ctx, x + 7, y + 5, 1, 1, O);
-    }
+    R(ctx, x + 3, y + 1, 6, 2, s.hair);
+    R(ctx, x + 5, y + 1, 3, 1, s.hairHi);
+    R(ctx, x + 3, y + 3, 2, 5, s.hair);
+    R(ctx, x + 3, y + 3, 1, 5, adjustHex(s.hair, -14));
+    R(ctx, x + 5, y + 3, 4, 4, s.skin);
+    R(ctx, x + 7, y + 4, 1, 2, eye);
+    R(ctx, x + 8, y + 6, 1, 1, skinSh);
+    R(ctx, x + 5, y + 7, 4, 1, adjustHex(s.skin, -13)); // soft chin shade
+    R(ctx, x + 4, y + 5, 1, 1, skinSh);     // ear
   }
   ctx.restore();
 }
 
 export const SKINS: Record<string, Skin> = {
-  neel:    { hair: "#2a2620", hairHi: "#3c372e", shirt: "#3a6fd0", shirtHi: "#5b8fe8", skin: "#e8b48c" },
-  sagar:   { hair: "#1c1a22", hairHi: "#2e2b38", shirt: "#d96a1a", shirtHi: "#f08840", skin: "#e0a87e" },
-  pramit:  { hair: "#23201a", hairHi: "#34302a", shirt: "#3a9e52", shirtHi: "#56c470", skin: "#e8b48c" },
-  manjima: { hair: "#1a1208", hairHi: "#2e2010", shirt: "#d04a8a", shirtHi: "#e86aaa", skin: "#8b5e3c" },
+  neel:    { hair: "#2a2620", hairHi: "#48423a", shirt: "#3a6fd0", shirtHi: "#5b8fe8", skin: "#e8b48c", pants: "#33415a", shoes: "#20242c" },
+  sagar:   { hair: "#1c1a22", hairHi: "#3a3648", shirt: "#d96a1a", shirtHi: "#f08840", skin: "#e0a87e", pants: "#2b303b", shoes: "#3a2a1c" },
+  pramit:  { hair: "#23201a", hairHi: "#403a30", shirt: "#3a9e52", shirtHi: "#56c470", skin: "#e8b48c", pants: "#3a3f4a", shoes: "#22262e" },
+  manjima: { hair: "#1a1208", hairHi: "#3a2c14", shirt: "#d04a8a", shirtHi: "#e86aaa", skin: "#8b5e3c", pants: "#403448", shoes: "#241e2a" },
 };

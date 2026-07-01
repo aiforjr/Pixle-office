@@ -442,8 +442,8 @@ export const tileCenterPx = (c: number, r: number) => ({
   y: r * TILE + TILE / 2,
 });
 
-export function objectById(world: World, id: string) {
-  return world.objects.find((o) => o.id === id) ?? world.gallery.find((o) => o.id === id)!;
+export function objectById(world: World, id: string): WorldObject | undefined {
+  return world.objects.find((o) => o.id === id) ?? world.gallery.find((o) => o.id === id);
 }
 
 export function approachTile(o: WorldObject): { c: number; r: number } {
@@ -461,8 +461,17 @@ export function approachTile(o: WorldObject): { c: number; r: number } {
 function backWall(ctx: Ctx, x: number, baseY: number, w: number, visH: number, t: WallTheme) {
   const top = baseY - visH;
   R(ctx, x, top, w, visH, t.main);
+  // crown: lit cap + soft shade line under it
   R(ctx, x, top, w, 3, t.light);
-  R(ctx, x, baseY - 3, w, 3, t.dark);
+  R(ctx, x, top + 3, w, 1, t.side);
+  // sparse vertical panel seams for texture
+  for (let px = x + 48 - (x % 48); px < x + w - 8; px += 48) {
+    R(ctx, px, top + 6, 1, visH - 14, t.side);
+  }
+  // baseboard: shadow band + skirting with a lit top edge
+  R(ctx, x, baseY - 9, w, 2, t.side);
+  R(ctx, x, baseY - 7, w, 7, t.dark);
+  R(ctx, x, baseY - 7, w, 1, t.light);
 }
 
 function floorShadowDown(ctx: Ctx, x: number, y: number, w: number) {
@@ -473,7 +482,13 @@ function floorShadowDown(ctx: Ctx, x: number, y: number, w: number) {
 export function drawFrontWall(ctx: Ctx, x: number, baseY: number, w: number, t: WallTheme = WALL_THEMES.orange.theme) {
   R(ctx, x, baseY, w, WALL_VIS, t.main);
   R(ctx, x, baseY, w, 3, t.light);
-  R(ctx, x, baseY + WALL_VIS - 3, w, 3, t.dark);
+  R(ctx, x, baseY + 3, w, 1, t.side);
+  for (let px = x + 48 - (x % 48); px < x + w - 8; px += 48) {
+    R(ctx, px, baseY + 6, 1, WALL_VIS - 14, t.side);
+  }
+  R(ctx, x, baseY + WALL_VIS - 9, w, 2, t.side);
+  R(ctx, x, baseY + WALL_VIS - 7, w, 7, t.dark);
+  R(ctx, x, baseY + WALL_VIS - 7, w, 1, t.light);
 }
 
 
@@ -767,7 +782,7 @@ function doorSpanForSide(rect: Rect, side: Room["doorSide"], anchor?: number): [
   if (side === "left")   return [{ c: rect.c0, r: midR - 2 }, { c: rect.c0, r: midR + 3 }];
   if (side === "right")  return [{ c: rect.c1, r: midR - 2 }, { c: rect.c1, r: midR + 3 }];
   if (side === "top")    return [{ c: midC - 2, r: rect.r0 }, { c: midC + 3, r: rect.r0 }];
-  return [{ c: midC - 2, r: rect.r1 }, { c: midC + 2, r: rect.r1 }];
+  return [{ c: midC - 2, r: rect.r1 }, { c: midC + 3, r: rect.r1 }];
 }
 
 /** Returns the two tile positions that form the door gap for a room's primary door. */
